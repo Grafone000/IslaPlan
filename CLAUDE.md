@@ -9,6 +9,66 @@ Un secondo servizio, il **CRM**, gestirà in futuro le richieste. **Non costruir
 - Repository: https://github.com/Grafone000/App-Eventi
 - Piano approvato: `C:\Users\Mario\.claude\plans\c-users-mario-downloads-6baf2c930-stima-zazzy-church.md`. Riferimento completo per route, contratto dati, regole di prezzo e milestone.
 
+## Funzioni dell'app
+
+### Home
+
+- Replica la bozza "Version D". Tutti i testi stanno in `src/content/home.ts`.
+- Titolo in alto: "Bring the party home. We'll take care of the rest."
+- Testi delle sezioni foto ispirati al testo principale. I suoi quattro paragrafi compaiono **copiati esattamente** sotto "Your event, your choices".
+- Nelle tre sezioni foto, titolo e testo compaiono con fade e slide allo scroll, rispettando `prefers-reduced-motion`.
+- Tutti i pulsanti "Book your event" portano al wizard.
+- "Log in" porta alla pagina di accesso. Con l'accesso fatto, la barra mostra "My area" e "Log out".
+
+### Account
+
+- Una sola pagina per Log in e Create account. Dopo l'accesso si torna alla Home.
+- Email e password con Supabase Auth, incluso il recupero password.
+- Create account chiede nome, cognome, email, telefono e password.
+- Lo scopo è non richiedere di nuovo i contatti: con l'accesso fatto lo step Contact viene saltato.
+- Gli eventi prenotati da ospite si collegano all'account solo a email verificata.
+
+### Wizard Event builder
+
+Una domanda per step, con bozza salvata e navigazione indietro.
+
+| # | Step | Tipo | Opzioni |
+|---|---|---|---|
+| 1 | Event type | Singola | Wedding, Birthday, Engagement, Wedding proposal, Hen Do/Stag Do, Baby showers, Graduation, Girls' night/Boys' night, Family/friends reunions, Other/Bespoke |
+| 2 | Date & Time | Data, inizio, fine | Calendario con orari |
+| 3 | Party size | Singola | From 10 to 20, From 20 to 40, From 40 to 60, From 60 to 80, Up to 100 |
+| 4 | Food | Multipla, obbligatoria | Private chef, Lunch, Dinner, Afternoon tea, Canapes style |
+| 5 | Drinks | Multipla, obbligatoria | Cocktails masterclass, Wine tasting, Private bartender, Private sommelier, Drinks all, Wine only, Cocktails/spirits only, I bring my own drinks |
+| 6 | Entertainment | Multipla, saltabile | DJ, Live music, Activities \| share your preference |
+| 7 | Decorations | Multipla, saltabile | Flowers, Balloons, Personalised/branded items, Other/Bespoke |
+| 8 | Any additional information | Testo libero, facoltativo | |
+| 9 | Budget | Singola | Under £1,000, £1,000-£2,500, £2,500-£5,000, £5,000-£10,000, Over £10,000 |
+| 10 | Contact details | Modulo | Nome e cognome, email, telefono |
+
+- Le scelte singole avanzano al tocco, le multiple con Continue.
+- Private chef esclude Lunch e Dinner, e viceversa.
+- Drinks all, Wine only, Cocktails/spirits only e I bring my own drinks si escludono a vicenda.
+- Activities e Other/Bespoke mostrano un campo di testo.
+
+### Preventivo e prenotazione
+
+1. **Estimate:** mostra un intervallo indicativo calcolato con le regole dell'Excel, e chiede se il cliente lo accetta.
+2. **Rifiuto:** il cliente torna a modificare l'evento con un supporto decisionale che mostra le voci che pesano di più, le modifiche che fanno risparmiare di più e la distanza dal budget. Può anche fermarsi: la richiesta resta salvata.
+3. **Consulenza:** "Would you like a phone consultation?". Se sì, mostra email, telefono e costo di £0.10/min.
+   - Telefono: link `tel:`. Al ritorno il cliente ritrova la stessa schermata.
+   - Email: compositore interno con A, Oggetto, Corpo, testo formattato, link e allegati. L'invio passa da uno stub.
+4. **Procedere:** con o senza consulenza, chiede se il cliente vuole procedere.
+5. **Deposito:** se sì, chiede il 20% del valore medio su una pagina di pagamento con provider stub. Stripe arriverà dopo.
+6. **Risposta negativa:** a "proceed" o al deposito mostra un breve messaggio cortese e salva la richiesta con il suo stato. Il "no" alla consulenza non chiude il flusso.
+7. **Voci "On request":** non hanno importo. Se nessuna voce ha un prezzo, compreso ogni evento Other/Bespoke, non ci sono importo né deposito.
+
+### Area riservata
+
+- Eventi del cliente, divisi in Upcoming e Past.
+- Dettaglio dell'evento con riepilogo e foto caricate dallo staff.
+- Conversazione con l'organizzatore tramite il compositore email.
+- "Create new event" per aprire un nuovo wizard.
+
 ## Lingua
 
 - Parla con l'utente in **italiano**.
@@ -19,9 +79,10 @@ Un secondo servizio, il **CRM**, gestirà in futuro le richieste. **Non costruir
 - Next.js con App Router, TypeScript, Tailwind
 - Supabase: Postgres, Auth, Storage
 - TipTap per il compositore email
+- `react-day-picker` e `date-fns` per il calendario
 - Vitest e Testing Library per i test unitari, Playwright per gli E2E
 
-Niente librerie di stato, date, form o validazione. **Chiedi prima di aggiungere qualsiasi dipendenza** non elencata nel piano.
+Niente librerie di stato, form o validazione. **Chiedi prima di aggiungere qualsiasi dipendenza** non elencata nel piano.
 
 ## Regole architetturali
 
