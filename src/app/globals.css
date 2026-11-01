@@ -1,0 +1,51 @@
+@import 'tailwindcss';
+
+/* Ondari palette and type from the Version D design */
+@theme {
+  --color-bg: #f7eedc;
+  --color-surface: #efe1cb;
+  --color-band: #b8857d;
+  --color-band-ink: #2b1a17;
+  --color-ink: #3b2622;
+  --color-muted: #6b4e48;
+  --color-line: #e2cfb6;
+  --color-accent: #8e5a52;
+  --color-on-accent: #fff6e3;
+  --color-eyebrow: #8e5a52;
+  --color-cta: #f2e2b8;
+  --color-cta-ink: #3b2622;
+
+  --font-sans: var(--font-dm-sans), system-ui, sans-serif;
+  --font-serif: var(--font-dm-serif), serif;
+  --font-display: var(--font-italiana), serif;
+  --font-body: var(--font-jost), system-ui, sans-serif;
+
+  --radius-button: 6px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+a {
+  color: inherit;
+}
+
+a:hover {
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
