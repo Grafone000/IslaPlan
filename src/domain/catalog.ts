@@ -95,6 +95,21 @@ export type BudgetId = (typeof budgetBands)[number]['id'];
 
 export type PricedCategory = 'food' | 'drinks' | 'entertainment' | 'decorations';
 
+export const pricedCategoryOptions: Record<PricedCategory, readonly CatalogOption[]> = {
+  food: foodOptions,
+  drinks: drinksOptions,
+  entertainment: entertainmentOptions,
+  decorations: decorationOptions,
+};
+
+export function itemLabel(category: PricedCategory, item: string): string {
+  return pricedCategoryOptions[category].find((option) => option.id === item)?.label ?? item;
+}
+
+export function partySizeLabel(id: string): string {
+  return partySizes.find((size) => size.id === id)?.label ?? id;
+}
+
 export type StepKind = 'single' | 'multiple' | 'date-time' | 'text' | 'contact';
 
 export interface WizardStep {

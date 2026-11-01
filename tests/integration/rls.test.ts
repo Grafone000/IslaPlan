@@ -13,6 +13,17 @@ const stamp = Date.now();
 const emails = [`rls-a-${stamp}@example.com`, `rls-b-${stamp}@example.com`];
 const requestId = crypto.randomUUID();
 
+// The connection to Supabase sometimes times out on this network. Only that is retried.
+async function withConnectRetry<T>(call: () => Promise<T>, attempts = 3): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await call();
+    } catch (error) {
+      if (attempt === attempts || (error as Error).name !== 'AuthRetryableFetchError') throw error;
+    }
+  }
+}
+
 describe.skipIf(!configured)('row level security', () => {
   const noSession = { auth: { persistSession: false, autoRefreshToken: false } };
   let admin: SupabaseClient;
@@ -31,12 +42,14 @@ describe.skipIf(!configured)('row level security', () => {
     admin = createClient(url as string, serviceKey as string, noSession);
     anonymous = createClient(url as string, anonKey as string, noSession);
     for (const email of emails) {
-      const { data, error } = await admin.auth.admin.createUser({
-        email,
-        password: PASSWORD,
-        email_confirm: true,
-        user_metadata: { first_name: 'Test', last_name: 'User', phone: '07700900000' },
-      });
+      const { data, error } = await withConnectRetry(() =>
+        admin.auth.admin.createUser({
+          email,
+          password: PASSWORD,
+          email_confirm: true,
+          user_metadata: { first_name: 'Test', last_name: 'User', phone: '07700900000' },
+        }),
+      );
       if (error) throw error;
       userIds.push(data.user.id);
     }
@@ -61,7 +74,7 @@ describe.skipIf(!configured)('row level security', () => {
       direction: 'client',
       body: {},
     });
-  }, 30_000);
+  }, 60_000);
 
   afterAll(async () => {
     await admin?.from('event_requests').delete().eq('id', requestId);

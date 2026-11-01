@@ -1,12 +1,8 @@
 import {
   budgetBands,
-  decorationOptions,
-  drinksOptions,
-  entertainmentOptions,
-  foodOptions,
   partySizes,
+  pricedCategoryOptions as categoryOptions,
   type BudgetId,
-  type CatalogOption,
   type PartySizeId,
   type PricedCategory,
 } from '../catalog';
@@ -42,13 +38,6 @@ export interface CostAnalysis {
 type SavingOf = (changed: EstimateInput) => number;
 
 const MAX_SUGGESTIONS = 3;
-
-const categoryOptions: Record<PricedCategory, readonly CatalogOption[]> = {
-  food: foodOptions,
-  drinks: drinksOptions,
-  entertainment: entertainmentOptions,
-  decorations: decorationOptions,
-};
 
 const requiredCategories: readonly PricedCategory[] = ['food', 'drinks'];
 

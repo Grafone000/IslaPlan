@@ -49,8 +49,8 @@ const openDecisions = {
   declinedAt: null,
 };
 
-function estimateFor(event: EventDetails, pricing: PricingContext): Estimate {
-  const input: EstimateInput = {
+export function estimateInputOf(event: EventDetails): EstimateInput {
+  return {
     eventType: event.type as EstimateInput['eventType'],
     partySize: event.partySize as EstimateInput['partySize'],
     food: event.food,
@@ -58,7 +58,10 @@ function estimateFor(event: EventDetails, pricing: PricingContext): Estimate {
     entertainment: event.entertainment.items,
     decorations: event.decorations.items,
   };
-  return calculateEstimate(input, pricing.table, pricing.config);
+}
+
+function estimateFor(event: EventDetails, pricing: PricingContext): Estimate {
+  return calculateEstimate(estimateInputOf(event), pricing.table, pricing.config);
 }
 
 // The server is the only caller, so the estimate is always its own calculation.

@@ -4,6 +4,7 @@ import {
   SCHEMA_VERSION,
   canTransition,
   createDraft,
+  estimateStage,
   isFinalStatus,
   requestStatuses,
   statusTransitions,
@@ -91,6 +92,35 @@ describe('transition', () => {
     for (const to of requestStatuses) {
       expect(() => transition(inStatus(status), to, T1)).toThrow(InvalidTransitionError);
     }
+  });
+});
+
+describe('estimateStage', () => {
+  const decided = (
+    status: RequestStatus,
+    decisions: Partial<EventRequest['decisions']>,
+  ): EventRequest => ({
+    ...inStatus(status),
+    decisions: { ...inStatus(status).decisions, ...decisions },
+  });
+
+  it.each([
+    ['estimated', {}, 'accept'],
+    ['revising', {}, 'revise'],
+    ['accepted', {}, 'consultation'],
+    ['accepted', { consultationWanted: false }, 'proceed'],
+    ['consultation-requested', { consultationWanted: true }, 'proceed'],
+    ['deposit-pending', {}, 'deposit'],
+    ['declined', {}, 'closed'],
+    ['deposit-paid', {}, 'closed'],
+  ] as const)('maps %s %j to %s', (status, decisions, stage) => {
+    expect(estimateStage(decided(status, decisions))).toBe(stage);
+  });
+
+  it('closes an on-request event once the client proceeds', () => {
+    const request = decided('accepted', { consultationWanted: false, proceed: true });
+    const onRequest = { kind: 'on-request' } as EventRequest['estimate'];
+    expect(estimateStage({ ...request, estimate: onRequest })).toBe('closed');
   });
 });
 

@@ -162,6 +162,29 @@ export function isFinalStatus(status: RequestStatus): boolean {
   return statusTransitions[status].length === 0;
 }
 
+export type EstimateStage = 'accept' | 'revise' | 'consultation' | 'proceed' | 'deposit' | 'closed';
+
+// Which question the client is on, worked out from the saved request so a reload or a return
+// from a phone call lands on the same screen.
+export function estimateStage(request: EventRequest): EstimateStage {
+  const { status, decisions, estimate } = request;
+  if (isFinalStatus(status) || (decisions.proceed && estimate?.kind === 'on-request')) {
+    return 'closed';
+  }
+  switch (status) {
+    case 'revising':
+      return 'revise';
+    case 'accepted':
+      return decisions.consultationWanted === null ? 'consultation' : 'proceed';
+    case 'consultation-requested':
+      return 'proceed';
+    case 'deposit-pending':
+      return 'deposit';
+    default:
+      return 'accept';
+  }
+}
+
 export function transition(request: EventRequest, to: RequestStatus, at: string): EventRequest {
   if (!canTransition(request.status, to)) {
     throw new InvalidTransitionError(request.status, to);

@@ -21,7 +21,7 @@ import {
   type PartySizeId,
   type WizardStepId,
 } from '@/domain/catalog';
-import type { Contact, EventDetails } from '@/domain/request';
+import { estimateStage, type Contact, type EventDetails } from '@/domain/request';
 import {
   canVisit,
   isStepComplete,
@@ -70,15 +70,18 @@ function Step({
   const [error, setError] = useState<string | null>(null);
   const autoSubmitted = useRef(false);
 
-  const allowed = canVisit(stepId, state, skipContact);
+  const closed = request !== null && estimateStage(request) === 'closed';
+  const allowed = !closed && canVisit(stepId, state, skipContact);
   const step = wizardSteps.find((candidate) => candidate.id === stepId);
   const steps = stepsFor(skipContact);
 
   useEffect(() => {
-    if (!allowed) {
+    if (closed) {
+      router.replace('/plan');
+    } else if (!allowed) {
       router.replace(`/plan/${resumeStep(state, skipContact)}`);
     }
-  }, [allowed, router, skipContact, state]);
+  }, [allowed, closed, router, skipContact, state]);
 
   async function submit(finalEvent: EventDetails, finalContact: Contact) {
     setBusy(true);
