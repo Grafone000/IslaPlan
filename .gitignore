@@ -1,0 +1,46 @@
+# Secrets: keep every env file out of git, except the template
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Build
+build/
+dist/
+*.tsbuildinfo
+
+# Tests
+coverage/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# Supabase local files
+supabase/.branches/
+supabase/.temp/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Vercel
+.vercel/
+
+# Claude Code local settings
+.claude/settings.local.json
