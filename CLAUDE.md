@@ -124,6 +124,7 @@ Niente librerie di stato, form o validazione. **Chiedi prima di aggiungere quals
 - Fermati e chiedi prima di aggiungere dipendenze, cambiare database o eliminare qualcosa.
 - Fai commit e push solo quando l'utente lo chiede. Mai direttamente su `main`.
 - Prima di dire che una milestone è fatta, esegui lint, test e build e riporta l'esito reale.
+- Tieni aggiornato `docs/known-issues.md`: ogni cosa che non funziona, non è verificata, è rimandata o è da ottimizzare va scritta lì appena emerge. Si toglie solo quando è risolta e verificata. Consultalo all'inizio di ogni milestone.
 
 ## Comandi
 

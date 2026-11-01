@@ -169,6 +169,20 @@ export function applyCommand(
   }
 }
 
+// Server only, once the consultation email is stored: clients cannot set a message id.
+export function recordConsultationMessage(
+  request: EventRequest,
+  messageId: string,
+  at: string,
+): EventRequest {
+  return {
+    ...request,
+    consultation: { method: 'email', messageId },
+    revision: request.revision + 1,
+    updatedAt: at,
+  };
+}
+
 const commandTypes = new Set<string>([
   'accept-estimate',
   'reject-estimate',

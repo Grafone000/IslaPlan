@@ -5,9 +5,12 @@ import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { business } from '@/config/business';
 import { priceTableV1 } from '@/domain/pricing/table.v1';
+import type { MessageServiceDeps } from './messageService';
 import type { RequestServiceDeps } from './requestService';
 import { stubCrmGateway } from './stubs/crm';
+import { stubEmailGateway } from './stubs/email';
 import { publicSupabaseConfig } from './supabase/config';
+import { supabaseAttachmentStore, supabaseMessageRepository } from './supabase/messages';
 import { supabaseRequestRepository } from './supabase/requests';
 
 // Server-side counterpart of index.ts. Route handlers import from here; screens never do.
@@ -54,6 +57,19 @@ export function requestServiceDeps(): RequestServiceDeps {
     crm: stubCrmGateway,
     pricing: { table: priceTableV1, config: business },
     now: () => new Date().toISOString(),
+  };
+}
+
+export function messageServiceDeps(): MessageServiceDeps {
+  const admin = adminClient();
+  return {
+    requests: supabaseRequestRepository(admin),
+    messages: supabaseMessageRepository(admin),
+    attachments: supabaseAttachmentStore(admin),
+    email: stubEmailGateway,
+    organiserEmail: business.contactEmail,
+    now: () => new Date().toISOString(),
+    newId: () => crypto.randomUUID(),
   };
 }
 

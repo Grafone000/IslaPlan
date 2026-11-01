@@ -58,7 +58,12 @@ export interface EventMessage {
 
 export interface MessageRepository {
   list(requestId: string): Promise<EventMessage[]>;
-  add(message: Omit<EventMessage, 'id' | 'createdAt'>): Promise<EventMessage>;
+  add(message: Omit<EventMessage, 'createdAt'>): Promise<EventMessage>;
+}
+
+export interface AttachmentStore {
+  upload(path: string, file: File): Promise<void>;
+  signedUrl(path: string): Promise<string>;
 }
 
 export interface EventPhoto {
