@@ -1,7 +1,7 @@
 import Image from 'next/image';
-import Link from 'next/link';
-import { home } from '@/content/home';
+import { AuthNav } from '@/components/auth/AuthNav';
 import { ButtonLink } from '@/components/ui/ButtonLink';
+import { home } from '@/content/home';
 
 const navLinkClass = 'inline-flex min-h-11 items-center no-underline';
 
@@ -25,9 +25,7 @@ export function Hero() {
               {link.label}
             </a>
           ))}
-          <Link href={nav.logIn.href} className={navLinkClass}>
-            {nav.logIn.label}
-          </Link>
+          <AuthNav />
         </nav>
       </header>
 

@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       className={`${dmSans.variable} ${dmSerif.variable} ${italiana.variable} ${jost.variable}`}
     >
       <body>{children}</body>

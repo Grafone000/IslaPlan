@@ -86,7 +86,7 @@ Niente librerie di stato, form o validazione. **Chiedi prima di aggiungere quals
 
 ## Regole architetturali
 
-- Schermate e `src/domain/` importano le integrazioni solo da `src/integrations/index.ts`.
+- Le schermate importano le integrazioni solo da `src/integrations/index.ts`, che contiene solo codice sicuro per il browser. Le route API usano `src/integrations/server.ts`.
 - `src/domain/` è puro: niente React, niente browser, niente Supabase.
 - `src/integrations/contracts.ts` definisce le interfacce. Email, pagamento e CRM restano **stub** finché non viene chiesto altro.
 - I testi modificabili stanno in `src/content/`, mai nei componenti.

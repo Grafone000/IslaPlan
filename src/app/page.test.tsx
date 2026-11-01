@@ -1,8 +1,21 @@
-import { render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { home } from '@/content/home';
 import Home from './page';
+
+const mocks = vi.hoisted(() => ({ currentAccount: vi.fn() }));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
+vi.mock('@/integrations', () => ({
+  auth: { currentAccount: mocks.currentAccount, logout: vi.fn() },
+}));
+
+beforeEach(() => {
+  mocks.currentAccount.mockResolvedValue(null);
+});
 
 afterEach(cleanup);
 
@@ -24,6 +37,16 @@ describe('Home', () => {
   it('has a Log in link to the login page', () => {
     render(<Home />);
     expect(screen.getByRole('link', { name: 'Log in' }).getAttribute('href')).toBe('/login');
+  });
+
+  it('offers My area and Log out once logged in', async () => {
+    mocks.currentAccount.mockResolvedValue({ id: 'account-1' });
+    render(<Home />);
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'My area' }).getAttribute('href')).toBe('/account'),
+    );
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull();
   });
 
   it('shows the three photo sections with their images', () => {
