@@ -5,4 +5,6 @@ import { supabaseAuth } from './supabase/auth';
 // lives in server.ts.
 export const auth: AuthProvider = supabaseAuth;
 
+export { draftStore } from './draftStore';
+export { requestsApi } from './requestsApi';
 export type { Account, AuthError } from './contracts';

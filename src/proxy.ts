@@ -2,20 +2,17 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { publicSupabaseConfig } from '@/integrations/supabase/config';
 
-const PRIVATE_PREFIX = '/account';
-
 function redirectToLogin(request: NextRequest) {
   const url = new URL('/login', request.url);
   url.searchParams.set('next', request.nextUrl.pathname);
   return NextResponse.redirect(url);
 }
 
-// Keeps the Supabase session fresh and guards the private area.
+// Guards the private area and keeps its Supabase session fresh.
 export async function proxy(request: NextRequest) {
-  const isPrivate = request.nextUrl.pathname.startsWith(PRIVATE_PREFIX);
   const config = publicSupabaseConfig();
   if (!config) {
-    return isPrivate ? redirectToLogin(request) : NextResponse.next({ request });
+    return redirectToLogin(request);
   }
 
   let response = NextResponse.next({ request });
@@ -31,9 +28,11 @@ export async function proxy(request: NextRequest) {
   });
 
   const { data } = await supabase.auth.getUser();
-  return !data.user && isPrivate ? redirectToLogin(request) : response;
+  return data.user ? response : redirectToLogin(request);
 }
 
+// Only the private area: the browser client keeps the session fresh everywhere else, and a
+// Supabase round trip on every page would slow down the wizard.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|images|favicon.ico).*)'],
+  matcher: ['/account/:path*'],
 };
