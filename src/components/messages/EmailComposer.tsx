@@ -79,7 +79,7 @@ export function EmailComposer({
     editorProps: {
       attributes: {
         'aria-label': content.body,
-        class: 'composer-body min-h-48 p-3.5 outline-none',
+        class: 'composer-body min-h-48 p-3.5',
       },
     },
   });

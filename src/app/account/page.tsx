@@ -6,6 +6,7 @@ import { PageShell } from '@/components/ui/PageShell';
 import { accountContent as content } from '@/content/account';
 import { splitEvents } from '@/domain/account';
 import { eventTypeLabel } from '@/domain/catalog';
+import { formatEventDate } from '@/domain/dates';
 import type { EventRequest } from '@/domain/request';
 import { accountServiceDeps, sessionUser } from '@/integrations/server';
 
@@ -21,12 +22,14 @@ function EventList({ events, empty }: { events: EventRequest[]; empty: string })
           <li key={event.id}>
             <Link
               href={`/account/events/${event.id}`}
-              aria-label={content.viewEvent(`${name}, ${event.event.date}`)}
+              aria-label={content.viewEvent(`${name}, ${formatEventDate(event.event.date)}`)}
               className="flex min-h-14 items-center justify-between gap-4 rounded-button border border-line bg-white p-4 no-underline"
             >
               <span>
                 <span className="block font-medium">{name}</span>
-                <span className="block text-[15px] text-muted">{event.event.date}</span>
+                <span className="block text-[15px] text-muted">
+                  {formatEventDate(event.event.date)}
+                </span>
               </span>
               <span className="text-right text-[15px] text-muted">
                 {content.statuses[event.status]}

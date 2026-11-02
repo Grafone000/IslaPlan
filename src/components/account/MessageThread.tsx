@@ -1,5 +1,6 @@
 import { MessageBody } from '@/components/messages/MessageBody';
 import { accountContent } from '@/content/account';
+import { formatShortDate } from '@/domain/dates';
 import type { MessageNode } from '@/domain/messageBody';
 import type { ThreadMessage } from '@/integrations/accountService';
 
@@ -19,7 +20,7 @@ export function MessageThread({ messages }: { messages: ThreadMessage[] }) {
             className={`rounded-button p-4 ${fromClient ? 'border border-line bg-white' : 'bg-surface'}`}
           >
             <p className="m-0 text-[15px] text-muted">
-              {fromClient ? content.you : content.organiser} · {message.createdAt.slice(0, 10)}
+              {fromClient ? content.you : content.organiser} · {formatShortDate(message.createdAt)}
             </p>
             {message.subject && <p className="mt-1 mb-0 font-semibold">{message.subject}</p>}
             <MessageBody body={message.body as MessageNode} />

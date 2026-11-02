@@ -26,6 +26,8 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Item | Detail |
 |---|---|
 | Intermittent Supabase connection timeouts | Some connections fail after 10 seconds with `UND_ERR_CONNECT_TIMEOUT`, then work again. Seen in a probe (2 of 6) and in several test runs, always on Node. Ruled out so far: keys, DNS (IPv4 only) and a bad address (both addresses answered 16 of 16 raw connections). Cause unknown: try another network or without VPN/antivirus filtering. A client would see "We couldn't save your request" and can retry. The RLS test retries the connection for this reason |
+| End-to-end tests fail now and then | Tests that log in or call Supabase sometimes fail on the connection timeout above, then pass when rerun alone. Seen with the private area tests in M10. Rerun a failing Supabase test before treating it as a real failure |
+| Organiser replies are awkward to add | Replies go in by hand in the Supabase dashboard, as editor JSON. Fine for testing, not for daily use: the CRM should own this |
 
 ### Unverified
 
@@ -34,7 +36,7 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Create account form on real Supabase | Skipped while Confirm email is on, to avoid mailing fake addresses. Needs Confirm email off in Authentication |
 | Password reset email | Never received for real. Needs a real inbox and `http://localhost:3000/**` in the Redirect URLs |
 | Guest request linking | `LINK_GUEST_REQUESTS` is off in development, so the link has never run |
-| Visual check of M6 to M9 pages | Estimate, revision, outcome, email composer, deposit and private area pass automated tests on both widths, but nobody has looked at them |
+| Accessibility beyond the basics | Automated checks cover titles, control names, image text, focus and colour contrast. No screen reader test has been done |
 
 ### Improvements
 
@@ -44,7 +46,7 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Tooling audit warnings | `npm audit` reports moderate issues in the ESLint toolchain only. Not shipped to users. The only fix offered is a downgrade |
 | ESLint 9 | Marked as no longer supported, kept because `eslint-config-next` needs it |
 | Orphan files on failed send | If a message fails after its attachments upload, the files stay in Storage |
-| Saved estimate discards the page on stale revision | A 409 shows a generic error. The client has to reload to continue |
+| Stale request after two tabs | If the same request changes in another tab, the next action gets a 409 and a generic error. The client has to reload to continue |
 | Resuming an event from the private area | An open event shows in My area, but the client can only carry on with the estimate from the browser that started it |
 | Photo size | Event photos load at full size, because signed links skip the image optimiser. Slow on a phone if staff upload large files |
 | Message dates | Messages show the date only, in UTC, with no time |

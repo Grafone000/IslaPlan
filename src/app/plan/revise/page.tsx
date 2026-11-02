@@ -10,7 +10,7 @@ import { PageShell } from '@/components/ui/PageShell';
 import { useWizard } from '@/components/wizard/WizardProvider';
 import { business } from '@/config/business';
 import { estimateContent } from '@/content/estimate';
-import { budgetBands, itemLabel, partySizeLabel } from '@/domain/catalog';
+import { budgetBands, itemLabel } from '@/domain/catalog';
 import { estimateInputOf } from '@/domain/commands';
 import { analyseCostDrivers, type Suggestion } from '@/domain/pricing/drivers';
 import { formatMoney } from '@/domain/pricing/format';
@@ -22,7 +22,7 @@ const content = estimateContent.revise;
 function describe(suggestion: Suggestion): string {
   switch (suggestion.kind) {
     case 'smaller-party':
-      return content.smallerParty(partySizeLabel(suggestion.to));
+      return content.smallerParty(suggestion.to);
     case 'swap-item':
       return content.swap(
         itemLabel(suggestion.category, suggestion.from),

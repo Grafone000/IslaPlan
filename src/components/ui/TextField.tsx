@@ -9,7 +9,7 @@ export function TextField({
       {label}
       <input
         {...input}
-        className="min-h-12 w-full rounded-button border border-line bg-white px-3.5 text-base font-normal text-ink outline-none focus:border-accent"
+        className="min-h-12 w-full rounded-button border border-line bg-white px-3.5 text-base font-normal text-ink focus:border-accent"
       />
     </label>
   );

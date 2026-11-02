@@ -1,11 +1,11 @@
-import { partySizeLabel } from '@/domain/catalog';
+import { guestsText } from '@/domain/catalog';
 
 export const estimateContent = {
   title: 'Your estimate',
   indicative: 'This is an indicative estimate based on your choices. We confirm the final price with you.',
   onRequest: 'Priced on request',
   onRequestBody: "Your event is bespoke, so we'll price it with you personally.",
-  guests: (partySize: string) => `For ${partySizeLabel(partySize).toLowerCase()} guests`,
+  guests: (partySize: string) => `For ${guestsText(partySize)}`,
   chosen: 'What you chose',
   onRequestItems: "Priced on request, so not included above:",
   corkage: 'I bring my own drinks covers service or corkage only, not the drinks.',
@@ -41,7 +41,7 @@ export const estimateContent = {
     other: 'Change something else',
     keep: 'Keep this estimate',
     stop: 'No thanks, I would rather stop here',
-    smallerParty: (size: string) => `Change your party size to ${size}`,
+    smallerParty: (partySize: string) => `Plan for ${guestsText(partySize)}`,
     swap: (from: string, to: string) => `Switch ${from} to ${to}`,
     remove: (item: string) => `Remove ${item}`,
   },

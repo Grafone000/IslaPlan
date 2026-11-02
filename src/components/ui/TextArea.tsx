@@ -11,7 +11,7 @@ export function TextArea({
         rows={4}
         maxLength={2000}
         {...input}
-        className="w-full rounded-button border border-line bg-white p-3.5 text-base font-normal text-ink outline-none focus:border-accent"
+        className="w-full rounded-button border border-line bg-white p-3.5 text-base font-normal text-ink focus:border-accent"
       />
     </label>
   );

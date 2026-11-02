@@ -110,6 +110,15 @@ export function eventTypeLabel(id: string | null): string {
   return eventTypes.find((type) => type.id === id)?.label ?? '';
 }
 
+// Reads naturally inside a sentence: "40 to 60 guests", "up to 100 guests".
+export function guestsText(id: string): string {
+  const size = partySizes.find((candidate) => candidate.id === id);
+  if (!size) return '';
+  return size.id === 'size-up-to-100'
+    ? `up to ${size.guestsMax} guests`
+    : `${size.guestsMin} to ${size.guestsMax} guests`;
+}
+
 export function partySizeLabel(id: string): string {
   return partySizes.find((size) => size.id === id)?.label ?? id;
 }

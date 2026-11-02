@@ -7,6 +7,7 @@ import { PageShell } from '@/components/ui/PageShell';
 import { business } from '@/config/business';
 import { accountContent as content } from '@/content/account';
 import { eventTypeLabel, partySizeLabel } from '@/domain/catalog';
+import { formatEventDate } from '@/domain/dates';
 import { formatMoney } from '@/domain/pricing/format';
 import { isUuid } from '@/domain/validation';
 import { loadAccountEvent } from '@/integrations/accountService';
@@ -54,7 +55,7 @@ export default async function AccountEventPage({
       <section className="mt-6">
         <h2 className={headingClass}>{details.title}</h2>
         <dl className="m-0 flex flex-col gap-2 rounded-button bg-surface p-5">
-          <Detail label={details.date} value={event.date ?? ''} />
+          <Detail label={details.date} value={formatEventDate(event.date)} />
           <Detail
             label={details.time}
             value={`${event.startTime} - ${event.endTime}${event.endsNextDay ? ` ${details.nextDay}` : ''}`}

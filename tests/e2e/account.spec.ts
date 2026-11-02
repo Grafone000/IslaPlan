@@ -99,10 +99,10 @@ test.describe('private area', () => {
       has: page.getByRole('heading', { name: 'Past events' }),
     });
     await expect(upcoming.getByRole('link')).toHaveCount(1);
-    await expect(upcoming.getByText(FUTURE)).toBeVisible();
+    await expect(upcoming.getByText('1 June 2030')).toBeVisible();
     await expect(past.getByRole('link')).toHaveCount(1);
-    await expect(past.getByText(PAST)).toBeVisible();
-    await expect(page.getByText('2031-01-01')).toHaveCount(0);
+    await expect(past.getByText('10 March 2024')).toBeVisible();
+    await expect(page.getByText('1 January 2031')).toHaveCount(0);
 
     const blocked = await page.goto(`/account/events/${declined}`);
     expect(blocked?.status()).toBe(404);
@@ -118,7 +118,7 @@ test.describe('private area', () => {
     expect(upload.error).toBeNull();
 
     await page.goto('/account');
-    await page.getByRole('link', { name: `View Birthday, ${PAST}` }).click();
+    await page.getByRole('link', { name: 'View Birthday, 10 March 2024' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Birthday' })).toBeVisible();
     await expect(page.getByText('From 20 to 40')).toBeVisible();
     await expect(page.getByText('Estimate ready')).toBeVisible();
