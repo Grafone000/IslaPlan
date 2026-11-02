@@ -6,6 +6,7 @@ export const TEST_EMAILS = [
   'estimate-e2e@example.com',
   'guest-e2e@example.com',
   'composer-e2e@example.com',
+  'deposit-e2e@example.com',
 ];
 
 const BUCKET = 'message-attachments';

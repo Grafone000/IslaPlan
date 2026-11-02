@@ -183,7 +183,7 @@ test.describe('after the estimate', () => {
     await answer(page, 'Would you like to proceed?', 'Yes');
 
     await expect(page).toHaveURL(/\/plan\/deposit/);
-    await expect(page.getByText('£1,236')).toBeVisible();
+    await expect(page.getByText('£1,236', { exact: true })).toBeVisible();
     await expect(page.getByText('To go ahead we ask for a 20% deposit.')).toBeVisible();
     await savedRow(id, 'deposit-pending');
 

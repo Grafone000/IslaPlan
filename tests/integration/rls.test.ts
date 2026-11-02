@@ -14,14 +14,16 @@ const emails = [`rls-a-${stamp}@example.com`, `rls-b-${stamp}@example.com`];
 const requestId = crypto.randomUUID();
 
 // The connection to Supabase sometimes times out on this network. Only that is retried.
-async function withConnectRetry<T>(call: () => Promise<T>, attempts = 5): Promise<T> {
+async function withConnectRetry<T extends { error: Error | null }>(
+  call: () => Promise<T>,
+  attempts = 5,
+): Promise<T> {
   for (let attempt = 1; ; attempt++) {
-    try {
-      return await call();
-    } catch (error) {
-      if (attempt === attempts || (error as Error).name !== 'AuthRetryableFetchError') throw error;
-      await new Promise((resolve) => setTimeout(resolve, 5_000));
+    const result = await call();
+    if (attempt === attempts || result.error?.name !== 'AuthRetryableFetchError') {
+      return result;
     }
+    await new Promise((resolve) => setTimeout(resolve, 5_000));
   }
 }
 

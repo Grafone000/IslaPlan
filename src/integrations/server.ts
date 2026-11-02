@@ -6,9 +6,11 @@ import { cookies } from 'next/headers';
 import { business } from '@/config/business';
 import { priceTableV1 } from '@/domain/pricing/table.v1';
 import type { MessageServiceDeps } from './messageService';
+import type { PaymentServiceDeps } from './paymentService';
 import type { RequestServiceDeps } from './requestService';
 import { stubCrmGateway } from './stubs/crm';
 import { stubEmailGateway } from './stubs/email';
+import { stubPaymentGateway } from './stubs/paymentGateway';
 import { publicSupabaseConfig } from './supabase/config';
 import { supabaseAttachmentStore, supabaseMessageRepository } from './supabase/messages';
 import { supabaseRequestRepository } from './supabase/requests';
@@ -70,6 +72,14 @@ export function messageServiceDeps(): MessageServiceDeps {
     organiserEmail: business.contactEmail,
     now: () => new Date().toISOString(),
     newId: () => crypto.randomUUID(),
+  };
+}
+
+export function paymentServiceDeps(): PaymentServiceDeps {
+  return {
+    requests: supabaseRequestRepository(adminClient()),
+    payments: stubPaymentGateway,
+    now: () => new Date().toISOString(),
   };
 }
 

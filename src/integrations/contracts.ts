@@ -106,8 +106,11 @@ export interface DepositPayment {
   currency: string;
 }
 
+export type PaymentOutcome = 'paid' | 'failed';
+
 export interface PaymentResult {
-  status: 'paid' | 'failed';
+  // invalid means the form showed its own error and nothing was attempted.
+  status: PaymentOutcome | 'invalid';
 }
 
 // Opaque by design: card fields stay inside the provider's form and never pass through here.
@@ -119,8 +122,16 @@ export interface CardFormProps {
   onReady(handle: CardFormHandle): void;
 }
 
+// Browser side. With Stripe, CardForm becomes Stripe Elements.
 export interface PaymentProvider {
+  provider: string;
   CardForm: ComponentType<CardFormProps>;
-  createDepositPayment(input: DepositInput): Promise<DepositPayment>;
   confirmDepositPayment(paymentId: string, handle: CardFormHandle): Promise<PaymentResult>;
+}
+
+// Server side. With Stripe, verifyPayment asks Stripe and ignores what the browser reported.
+export interface PaymentGateway {
+  provider: string;
+  createDepositPayment(input: DepositInput): Promise<DepositPayment>;
+  verifyPayment(paymentId: string, reported: PaymentOutcome): Promise<PaymentOutcome>;
 }

@@ -10,6 +10,7 @@ import {
   type Estimate,
   type EventDetails,
   type EventRequest,
+  type Payment,
   type RequestStatus,
 } from './request';
 
@@ -180,6 +181,40 @@ export function recordConsultationMessage(
     consultation: { method: 'email', messageId },
     revision: request.revision + 1,
     updatedAt: at,
+  };
+}
+
+// Server only: the amount always comes from the stored estimate.
+export function recordDepositPayment(
+  request: EventRequest,
+  payment: Pick<Payment, 'provider' | 'paymentId' | 'amount' | 'currency'>,
+  at: string,
+): EventRequest {
+  return {
+    ...request,
+    payment: { ...payment, status: 'pending', paidAt: null },
+    revision: request.revision + 1,
+    updatedAt: at,
+  };
+}
+
+export function recordPaymentOutcome(
+  request: EventRequest,
+  outcome: 'paid' | 'failed',
+  at: string,
+): EventRequest {
+  const payment = request.payment as Payment;
+  if (outcome === 'failed') {
+    return {
+      ...request,
+      payment: { ...payment, status: 'failed' },
+      revision: request.revision + 1,
+      updatedAt: at,
+    };
+  }
+  return {
+    ...transition(request, 'deposit-paid', at),
+    payment: { ...payment, status: 'paid', paidAt: at },
   };
 }
 

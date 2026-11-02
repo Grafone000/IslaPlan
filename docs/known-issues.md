@@ -11,7 +11,7 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Item | Detail |
 |---|---|
 | Prices not validated | The Excel sheet is a first working estimate, to be checked against real supplier quotes |
-| Real payment | `PaymentProvider` is a stub: Stripe still to connect, with a server-side webhook |
+| Real payment | `PaymentProvider` and `PaymentGateway` are stubs: Stripe still to connect, with a server-side webhook. The stub gateway believes what the browser reports, so today anyone with a request id could mark its deposit as paid. Harmless with no real money, but it must not reach production |
 | Real email | `EmailGateway` is a stub: messages are stored but nobody receives them |
 | Staff tools | With no CRM, staff can only see requests, reply to messages and upload photos from the Supabase dashboard |
 | Privacy | No privacy notice or UK GDPR basis for client data |
@@ -25,8 +25,7 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 
 | Item | Detail |
 |---|---|
-| Intermittent Supabase connection timeouts | Some connections fail after 10 seconds with `UND_ERR_CONNECT_TIMEOUT`, then work again. Seen in a probe (2 of 6) and in several test runs, always on Node. Ruled out so far: keys, DNS (IPv4 only) and a bad address (both addresses answered 16 of 16 raw connections). Cause unknown: try another network or without VPN/antivirus filtering. A client would see "We couldn't save your request" and can retry |
-| RLS test can fail on a full run | `npm run test` sometimes fails `tests/integration/rls.test.ts` with `fetch failed` after about 12 seconds, then passes on the next run. The retry added to the test did not stop it, which does not fit a plain timeout on one call, so the failing call may be elsewhere in its setup. If it fails, rerun before treating it as a real failure |
+| Intermittent Supabase connection timeouts | Some connections fail after 10 seconds with `UND_ERR_CONNECT_TIMEOUT`, then work again. Seen in a probe (2 of 6) and in several test runs, always on Node. Ruled out so far: keys, DNS (IPv4 only) and a bad address (both addresses answered 16 of 16 raw connections). Cause unknown: try another network or without VPN/antivirus filtering. A client would see "We couldn't save your request" and can retry. The RLS test retries the connection for this reason |
 
 ### Unverified
 
@@ -35,7 +34,7 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Create account form on real Supabase | Skipped while Confirm email is on, to avoid mailing fake addresses. Needs Confirm email off in Authentication |
 | Password reset email | Never received for real. Needs a real inbox and `http://localhost:3000/**` in the Redirect URLs |
 | Guest request linking | `LINK_GUEST_REQUESTS` is off in development, so the link has never run |
-| Visual check of M6 and M7 pages | Estimate, revision, deposit, outcome and the email composer pass automated tests on both widths, but nobody has looked at them |
+| Visual check of M6, M7 and M8 pages | Estimate, revision, outcome, email composer and deposit pass automated tests on both widths, but nobody has looked at them |
 
 ### Improvements
 

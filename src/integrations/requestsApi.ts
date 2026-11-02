@@ -21,6 +21,12 @@ export const requestsApi = {
   command(id: string, command: RequestCommand) {
     return send(`/api/requests/${id}`, 'PATCH', command);
   },
+  startDeposit(id: string) {
+    return send(`/api/requests/${id}/deposit`, 'POST', {});
+  },
+  confirmDeposit(id: string, paymentId: string, reported: 'paid' | 'failed') {
+    return send(`/api/requests/${id}/deposit/confirm`, 'POST', { paymentId, reported });
+  },
   async sendMessage(
     id: string,
     message: { subject: string; body: unknown },
