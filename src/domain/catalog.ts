@@ -106,6 +106,10 @@ export function itemLabel(category: PricedCategory, item: string): string {
   return pricedCategoryOptions[category].find((option) => option.id === item)?.label ?? item;
 }
 
+export function eventTypeLabel(id: string | null): string {
+  return eventTypes.find((type) => type.id === id)?.label ?? '';
+}
+
 export function partySizeLabel(id: string): string {
   return partySizes.find((size) => size.id === id)?.label ?? id;
 }

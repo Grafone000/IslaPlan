@@ -34,7 +34,7 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Create account form on real Supabase | Skipped while Confirm email is on, to avoid mailing fake addresses. Needs Confirm email off in Authentication |
 | Password reset email | Never received for real. Needs a real inbox and `http://localhost:3000/**` in the Redirect URLs |
 | Guest request linking | `LINK_GUEST_REQUESTS` is off in development, so the link has never run |
-| Visual check of M6, M7 and M8 pages | Estimate, revision, outcome, email composer and deposit pass automated tests on both widths, but nobody has looked at them |
+| Visual check of M6 to M9 pages | Estimate, revision, outcome, email composer, deposit and private area pass automated tests on both widths, but nobody has looked at them |
 
 ### Improvements
 
@@ -45,4 +45,7 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | ESLint 9 | Marked as no longer supported, kept because `eslint-config-next` needs it |
 | Orphan files on failed send | If a message fails after its attachments upload, the files stay in Storage |
 | Saved estimate discards the page on stale revision | A 409 shows a generic error. The client has to reload to continue |
+| Resuming an event from the private area | An open event shows in My area, but the client can only carry on with the estimate from the browser that started it |
+| Photo size | Event photos load at full size, because signed links skip the image optimiser. Slow on a phone if staff upload large files |
+| Message dates | Messages show the date only, in UTC, with no time |
 | Wide estimate ranges | The high total combines high prices with maximum guests. See `docs/pricing-rules.md` |

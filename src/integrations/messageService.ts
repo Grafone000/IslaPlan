@@ -93,7 +93,9 @@ export async function postMessage(
     bodyText,
   });
 
-  if (request.status === 'consultation-requested') {
+  const isConsultationEmail =
+    request.status === 'consultation-requested' && request.consultation.method !== 'phone';
+  if (isConsultationEmail) {
     const updated = recordConsultationMessage(request, messageId, deps.now());
     await deps.requests.update(updated, request.revision);
     return { status: 201, body: { message, request: updated } };

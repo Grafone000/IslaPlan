@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { business } from '@/config/business';
 import { priceTableV1 } from '@/domain/pricing/table.v1';
+import type { AccountServiceDeps } from './accountService';
 import type { MessageServiceDeps } from './messageService';
 import type { PaymentServiceDeps } from './paymentService';
 import type { RequestServiceDeps } from './requestService';
@@ -13,6 +14,7 @@ import { stubEmailGateway } from './stubs/email';
 import { stubPaymentGateway } from './stubs/paymentGateway';
 import { publicSupabaseConfig } from './supabase/config';
 import { supabaseAttachmentStore, supabaseMessageRepository } from './supabase/messages';
+import { supabasePhotoRepository } from './supabase/photos';
 import { supabaseRequestRepository } from './supabase/requests';
 
 // Server-side counterpart of index.ts. Route handlers import from here; screens never do.
@@ -41,7 +43,10 @@ export async function sessionClient() {
     cookies: {
       getAll: () => store.getAll(),
       setAll: (values) => {
-        values.forEach(({ name, value, options }) => store.set(name, value, options));
+        // Pages cannot set cookies; the proxy refreshes the session for them.
+        try {
+          values.forEach(({ name, value, options }) => store.set(name, value, options));
+        } catch {}
       },
     },
   });
@@ -80,6 +85,16 @@ export function paymentServiceDeps(): PaymentServiceDeps {
     requests: supabaseRequestRepository(adminClient()),
     payments: stubPaymentGateway,
     now: () => new Date().toISOString(),
+  };
+}
+
+export function accountServiceDeps(): AccountServiceDeps {
+  const admin = adminClient();
+  return {
+    requests: supabaseRequestRepository(admin),
+    messages: supabaseMessageRepository(admin),
+    photos: supabasePhotoRepository(admin),
+    attachments: supabaseAttachmentStore(admin),
   };
 }
 
