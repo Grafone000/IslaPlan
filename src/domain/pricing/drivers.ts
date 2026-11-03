@@ -1,13 +1,11 @@
 import {
-  budgetBands,
-  partySizes,
+  budgetLimits,
+  guestLimits,
   pricedCategoryOptions as categoryOptions,
-  type BudgetId,
-  type PartySizeId,
   type PricedCategory,
 } from '../catalog';
 import { calculateEstimate, lookupPrice, type EstimateInput, type PricingConfig } from './engine';
-import type { PriceTable } from './table.v1';
+import type { PriceTable } from './table.v2';
 
 export interface CostDriver {
   category: PricedCategory;
@@ -17,14 +15,13 @@ export interface CostDriver {
 }
 
 export type Suggestion =
-  | { kind: 'smaller-party'; from: PartySizeId; to: PartySizeId; saving: number }
+  | { kind: 'fewer-guests'; from: number; to: number; saving: number }
   | { kind: 'swap-item'; category: PricedCategory; from: string; to: string; saving: number }
   | { kind: 'remove-item'; category: PricedCategory; item: string; saving: number };
 
 export interface BudgetGap {
-  budget: BudgetId;
-  budgetMax: number;
-  // Positive when the midpoint is over the top of the band.
+  budget: number;
+  // Positive when the midpoint is over the budget.
   difference: number;
 }
 
@@ -38,24 +35,25 @@ export interface CostAnalysis {
 type SavingOf = (changed: EstimateInput) => number;
 
 const MAX_SUGGESTIONS = 3;
+const FEWER_GUESTS_STEP = 10;
 
 const requiredCategories: readonly PricedCategory[] = ['food', 'drinks'];
 
 export function analyseCostDrivers(
   input: EstimateInput,
-  budget: BudgetId | null,
+  budget: number | null,
   table: PriceTable,
   config: PricingConfig,
 ): CostAnalysis {
   const estimate = calculateEstimate(input, table, config);
-  const { midpoint, guestsMin, guestsMax } = estimate;
+  const { midpoint, guests } = estimate;
   if (midpoint === null) {
     return { midpoint: null, drivers: [], suggestions: [], budgetGap: null };
   }
 
   const drivers = estimate.lines
     .map(({ category, item, lowPerPerson, highPerPerson }) => {
-      const amount = (lowPerPerson * guestsMin + highPerPerson * guestsMax) / 2;
+      const amount = ((lowPerPerson + highPerPerson) * guests) / 2;
       return { category, item, amount, sharePercent: Math.round((amount / midpoint) * 100) };
     })
     .sort((a, b) => b.amount - a.amount);
@@ -77,7 +75,7 @@ export function analyseCostDrivers(
       .slice(0, 1),
   );
 
-  const suggestions = [smallerPartySuggestion(input, savingOf), ...itemSuggestions]
+  const suggestions = [fewerGuestsSuggestion(input, savingOf), ...itemSuggestions]
     .filter((suggestion) => suggestion !== null)
     .filter((suggestion) => suggestion.saving > 0)
     .sort((a, b) => b.saving - a.saving)
@@ -138,24 +136,23 @@ function removeSuggestion(
   return { kind: 'remove-item', category, item, saving };
 }
 
-function smallerPartySuggestion(input: EstimateInput, savingOf: SavingOf): Suggestion | null {
-  const index = partySizes.findIndex((size) => size.id === input.partySize);
-  if (index <= 0) {
+function fewerGuestsSuggestion(input: EstimateInput, savingOf: SavingOf): Suggestion | null {
+  const to = Math.max(guestLimits.min, input.guests - FEWER_GUESTS_STEP);
+  if (to >= input.guests) {
     return null;
   }
-  const to = partySizes[index - 1].id;
   return {
-    kind: 'smaller-party',
-    from: input.partySize,
+    kind: 'fewer-guests',
+    from: input.guests,
     to,
-    saving: savingOf({ ...input, partySize: to }),
+    saving: savingOf({ ...input, guests: to }),
   };
 }
 
-function budgetGapOf(budget: BudgetId | null, midpoint: number): BudgetGap | null {
-  const band = budgetBands.find((candidate) => candidate.id === budget);
-  if (!band || band.maxMinor === null) {
+// The top of the slider means "or more", so it sets no limit to compare with.
+function budgetGapOf(budget: number | null, midpoint: number): BudgetGap | null {
+  if (budget === null || budget >= budgetLimits.maxMinor) {
     return null;
   }
-  return { budget: band.id, budgetMax: band.maxMinor, difference: midpoint - band.maxMinor };
+  return { budget, difference: midpoint - budget };
 }

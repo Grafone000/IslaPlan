@@ -6,7 +6,7 @@ import { PhotoGallery } from '@/components/account/PhotoGallery';
 import { PageShell } from '@/components/ui/PageShell';
 import { business } from '@/config/business';
 import { accountContent as content } from '@/content/account';
-import { eventTypeLabel, partySizeLabel } from '@/domain/catalog';
+import { eventTypeLabel, guestsText } from '@/domain/catalog';
 import { formatEventDate } from '@/domain/dates';
 import { formatMoney } from '@/domain/pricing/format';
 import { isUuid } from '@/domain/validation';
@@ -60,7 +60,7 @@ export default async function AccountEventPage({
             label={details.time}
             value={`${event.startTime} - ${event.endTime}${event.endsNextDay ? ` ${details.nextDay}` : ''}`}
           />
-          <Detail label={details.partySize} value={partySizeLabel(event.partySize ?? '')} />
+          <Detail label={details.partySize} value={event.guests ? guestsText(event.guests) : ''} />
           <Detail label={details.status} value={content.statuses[status]} />
           <Detail
             label={details.estimate}

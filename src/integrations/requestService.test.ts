@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { business } from '@/config/business';
-import { priceTableV1 } from '@/domain/pricing/table.v1';
+import { priceTableV2 } from '@/domain/pricing/table.v2';
 import type { EventRequest } from '@/domain/request';
 import type { CrmGateway, RequestRepository } from './contracts';
 import { createRequest, runRequestCommand, type RequestServiceDeps } from './requestService';
@@ -19,13 +19,24 @@ const event = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  partySize: 'size-40-60',
-  food: ['dinner'],
-  drinks: ['wine-only'],
-  entertainment: { items: ['dj'], activitiesPreference: null },
+  guests: 50,
+  food: { items: ['dinner'], menus: {}, ownFoodNote: null },
+  drinks: {
+    items: ['wine-only'],
+    packages: { 'wine-only': 'wine-175ml' },
+    times: {},
+    ownDrinksNote: null,
+  },
+  entertainment: {
+    items: ['dj'],
+    times: {
+      dj: { startTime: '18:30', startsNextDay: false, endTime: '23:00', endsNextDay: false },
+    },
+    activitiesPreference: null,
+  },
   decorations: { items: ['flowers'], note: null },
   additionalInfo: '',
-  budget: '2500-5000',
+  budget: 500_000,
 };
 
 let stored: Map<string, EventRequest>;
@@ -64,7 +75,7 @@ beforeEach(() => {
   deps = {
     requests: memoryRepository(),
     crm,
-    pricing: { table: priceTableV1, config: business },
+    pricing: { table: priceTableV2, config: business },
     now: () => '2026-11-01T10:00:00.000Z',
   };
 });
@@ -93,7 +104,7 @@ describe('createRequest', () => {
     const request = stored.get(ID);
     expect(request?.status).toBe('estimated');
     expect(request?.accountId).toBeNull();
-    expect(request?.estimate?.depositAmount).toBe(123_600);
+    expect(request?.estimate?.depositAmount).toBe(117_500);
   });
 
   it('takes the account from the session', async () => {

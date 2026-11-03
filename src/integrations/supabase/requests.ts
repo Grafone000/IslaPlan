@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { EventRequest } from '@/domain/request';
+import { upgradeRequest } from '@/domain/upgrade';
 import type { RequestRepository } from '../contracts';
 
 const TABLE = 'event_requests';
@@ -42,7 +43,7 @@ export function supabaseRequestRepository(admin: SupabaseClient): RequestReposit
     async get(id) {
       const { data, error } = await admin.from(TABLE).select('payload').eq('id', id).maybeSingle();
       if (error) throw error;
-      return (data?.payload as EventRequest | undefined) ?? null;
+      return data ? upgradeRequest(data.payload) : null;
     },
 
     async listByAccount(accountId) {
@@ -52,7 +53,7 @@ export function supabaseRequestRepository(admin: SupabaseClient): RequestReposit
         .eq('account_id', accountId)
         .order('event_date', { ascending: false });
       if (error) throw error;
-      return data.map((row) => row.payload as EventRequest);
+      return data.map((row) => upgradeRequest(row.payload));
     },
 
     async linkGuestRequests(accountId, email) {
@@ -63,7 +64,7 @@ export function supabaseRequestRepository(admin: SupabaseClient): RequestReposit
         .eq('contact_email', email.trim().toLowerCase());
       if (error) throw error;
       for (const row of data) {
-        const request = row.payload as EventRequest;
+        const request = upgradeRequest(row.payload);
         const linked = { ...request, accountId, revision: request.revision + 1 };
         await update(linked, request.revision);
       }

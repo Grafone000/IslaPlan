@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { business } from '@/config/business';
 import { applyCommand, createEstimatedRequest, type PricingContext } from '@/domain/commands';
-import { priceTableV1 } from '@/domain/pricing/table.v1';
+import { priceTableV2 } from '@/domain/pricing/table.v2';
 import type { EventDetails, EventRequest } from '@/domain/request';
 import type { RequestRepository } from './contracts';
 import { confirmDeposit, startDeposit, type PaymentServiceDeps } from './paymentService';
 
 const ID = '6f1c1f0e-2f43-4f52-9d0e-3f8a0a7f1b11';
 const NOW = '2026-11-01T11:00:00.000Z';
-const pricing: PricingContext = { table: priceTableV1, config: business };
+const pricing: PricingContext = { table: priceTableV2, config: business };
 const contact = {
   firstName: 'Jamie',
   lastName: 'Doe',
@@ -22,13 +22,24 @@ const event: EventDetails = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  partySize: 'size-40-60',
-  food: ['dinner'],
-  drinks: ['wine-only'],
-  entertainment: { items: ['dj'], activitiesPreference: null },
+  guests: 50,
+  food: { items: ['dinner'], menus: {}, ownFoodNote: null },
+  drinks: {
+    items: ['wine-only'],
+    packages: { 'wine-only': 'wine-175ml' },
+    times: {},
+    ownDrinksNote: null,
+  },
+  entertainment: {
+    items: ['dj'],
+    times: {
+      dj: { startTime: '18:30', startsNextDay: false, endTime: '23:00', endsNextDay: false },
+    },
+    activitiesPreference: null,
+  },
   decorations: { items: ['flowers'], note: null },
   additionalInfo: '',
-  budget: '2500-5000',
+  budget: 500_000,
 };
 
 let stored: EventRequest;
@@ -78,7 +89,7 @@ describe('startDeposit', () => {
     expect(stored.payment).toEqual({
       provider: 'test',
       paymentId: 'pay-1',
-      amount: 123_600,
+      amount: 117_500,
       currency: 'GBP',
       status: 'pending',
       paidAt: null,

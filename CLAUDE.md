@@ -36,19 +36,27 @@ Una domanda per step, con bozza salvata e navigazione indietro.
 |---|---|---|---|
 | 1 | Event type | Singola | Wedding, Birthday, Engagement, Wedding proposal, Hen Do/Stag Do, Baby showers, Graduation, Girls' night/Boys' night, Family/friends reunions, Other/Bespoke |
 | 2 | Date & Time | Data, inizio, fine | Calendario con orari |
-| 3 | Party size | Singola | From 10 to 20, From 20 to 40, From 40 to 60, From 60 to 80, Up to 100 |
-| 4 | Food | Multipla, obbligatoria | Private chef, Lunch, Dinner, Afternoon tea, Canapes style |
+| 3 | Party size | Slider | Da 10 a 100 ospiti, passo 1 |
+| 4 | Food | Multipla, obbligatoria | Brunch, Lunch, Dinner, Canapés, Afternoon tea, Private chef, I bring my own food |
+| 4a | Menu | Singola, una pagina per voce | Per Brunch, Lunch, Canapés e Afternoon tea 3 menu; per Private chef 5 chef |
 | 5 | Drinks | Multipla, obbligatoria | Cocktails masterclass, Wine tasting, Private bartender, Private sommelier, Drinks all, Wine only, Cocktails/spirits only, I bring my own drinks |
+| 5a | Quantità drink | Singola, una pagina per voce | Per Cocktails/spirits only, Drinks all e Wine only, 4 opzioni ciascuno |
 | 6 | Entertainment | Multipla, saltabile | DJ, Live music, Activities \| share your preference |
 | 7 | Decorations | Multipla, saltabile | Flowers, Balloons, Personalised/branded items, Other/Bespoke |
 | 8 | Any additional information | Testo libero, facoltativo | |
-| 9 | Budget | Singola | Under £1,000, £1,000-£2,500, £2,500-£5,000, £5,000-£10,000, Over £10,000 |
+| 9 | Budget | Slider | Da £500 a £20,000 a passi di £50; il massimo vale "£20,000 or more" |
 | 10 | Contact details | Modulo | Nome e cognome, email, telefono |
 
-- Le scelte singole avanzano al tocco, le multiple con Continue.
+- Le scelte singole avanzano al tocco, le multiple e gli slider con Continue.
 - Private chef esclude Lunch e Dinner, e viceversa.
-- Drinks all, Wine only, Cocktails/spirits only e I bring my own drinks si escludono a vicenda.
-- Activities e Other/Bespoke mostrano un campo di testo.
+- Drinks all esclude Wine only e Cocktails/spirits only. I bring my own drinks esclude Drinks all, Wine only e Cocktails/spirits only. Wine only e Cocktails/spirits only si possono scegliere insieme.
+- Dopo Continue, Food apre una pagina menu per ogni voce scelta che ha menu, e Drinks una pagina quantità per ogni voce che ha opzioni, nell'ordine del catalogo. Dinner e I bring my own food non hanno menu.
+- La casella scelta si allarga, senza cambiare pagina, per:
+  - Private bartender, Private sommelier, DJ e Live music: orario di inizio e fine, dentro l'orario dell'evento, che parte dall'intero evento.
+  - I bring my own food e I bring my own drinks: testo facoltativo, si può proseguire anche vuoto.
+  - Activities: testo con l'idea del cliente.
+- Other/Bespoke mostra un campo di testo.
+- Menu, piatti, chef e opzioni dei drink stanno in `src/domain/catalog.ts`, con id stabili.
 
 ### Preventivo e prenotazione
 
@@ -60,7 +68,7 @@ Una domanda per step, con bozza salvata e navigazione indietro.
 4. **Procedere:** con o senza consulenza, chiede se il cliente vuole procedere.
 5. **Deposito:** se sì, chiede il 20% del valore medio su una pagina di pagamento con provider stub. Stripe arriverà dopo.
 6. **Risposta negativa:** a "proceed" o al deposito mostra un breve messaggio cortese e salva la richiesta con il suo stato. Il "no" alla consulenza non chiude il flusso.
-7. **Voci "On request":** non hanno importo. Se nessuna voce ha un prezzo, compreso ogni evento Other/Bespoke, non ci sono importo né deposito.
+7. **Voci "On request":** non hanno importo. Se nessuna voce ha un prezzo non ci sono importo né deposito: per esempio un evento Other/Bespoke senza Flowers né Balloons.
 
 ### Area riservata
 
@@ -111,11 +119,17 @@ Niente librerie di stato, form o validazione. **Chiedi prima di aggiungere quals
 
 ## Prezzi
 
-- La fonte è `6baf2c930_stima_prezzi_eventi.xlsx`, trascritta in `src/domain/pricing/table.v1.ts`.
+- La fonte è `6baf2c930_stima_prezzi_eventi.xlsx`, trascritta in `src/domain/pricing/table.v2.ts` (`pricing-v2`).
+- Il preventivo usa il numero esatto di ospiti: somma dei minimi × ospiti, somma dei massimi × ospiti.
+- Differenze dall'Excel, decise dal cliente:
+  - Brunch costa come Lunch finché non avrà prezzi suoi.
+  - I bring my own food non costa nulla e non compare nel preventivo.
+  - Flowers e Balloons costano £15 a persona ciascuno, per ogni tipo di evento.
+- Menu, quantità dei drink, orari e note non cambiano il prezzo.
 - Ogni regola e ambiguità è documentata in `docs/pricing-rules.md`.
 - Il preventivo è sempre presentato come indicativo.
 - I prezzi dell'Excel non sono validati: è un blocco per l'uscita online.
-- Caso di riferimento: Wedding, 40-60, Dinner, Wine only, DJ, Flowers dà £3,360-£9,000, valore medio £6,180, deposito £1,236.
+- Caso di riferimento: Wedding, 50 ospiti, Dinner, Wine only, DJ, Flowers dà £4,500-£7,250, valore medio £5,875, deposito £1,175.
 
 ## Modo di lavorare
 

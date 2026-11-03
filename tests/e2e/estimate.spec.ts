@@ -26,13 +26,24 @@ const event = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  partySize: 'size-40-60',
-  food: ['dinner'],
-  drinks: ['wine-only'],
-  entertainment: { items: ['dj'], activitiesPreference: null },
+  guests: 50,
+  food: { items: ['dinner'], menus: {}, ownFoodNote: null },
+  drinks: {
+    items: ['wine-only'],
+    packages: { 'wine-only': 'wine-175ml' },
+    times: {},
+    ownDrinksNote: null,
+  },
+  entertainment: {
+    items: ['dj'],
+    times: {
+      dj: { startTime: '18:30', startsNextDay: false, endTime: '23:00', endsNextDay: false },
+    },
+    activitiesPreference: null,
+  },
   decorations: { items: ['flowers'], note: null },
   additionalInfo: '',
-  budget: '2500-5000',
+  budget: 500_000,
 };
 
 test.describe('after the estimate', () => {
@@ -60,7 +71,7 @@ test.describe('after the estimate', () => {
       ([key, draft]) => localStorage.setItem(key as string, JSON.stringify(draft)),
       [
         DRAFT_KEY,
-        { draftVersion: 1, id, event: finalEvent, contact, furthest: 'contact', request },
+        { draftVersion: 2, id, event: finalEvent, contact, furthest: 'contact', request },
       ],
     );
     await page.goto('/plan/estimate');
@@ -86,7 +97,7 @@ test.describe('after the estimate', () => {
 
   test('shows the indicative estimate and what was chosen', async ({ page }) => {
     await openEstimate(page);
-    await expect(page.getByText('£3,360 - £9,000')).toBeVisible();
+    await expect(page.getByText('£4,500 - £7,250')).toBeVisible();
     await expect(page.getByText(/indicative estimate/)).toBeVisible();
     await expect(page.getByRole('listitem').filter({ hasText: 'Dinner' })).toBeVisible();
   });
@@ -96,22 +107,28 @@ test.describe('after the estimate', () => {
     await answer(page, 'Are you happy with this estimate?', 'No');
 
     await expect(page).toHaveURL(/\/plan\/revise/);
-    await expect(page.getByText('£3,550 (57%)')).toBeVisible();
-    await expect(page.getByText('Switch Dinner to Lunch')).toBeVisible();
-    await expect(page.getByText('Saves about £1,450')).toBeVisible();
-    await expect(page.getByText(/about £1,180 above the £2,500-£5,000 budget/)).toBeVisible();
+    await expect(page.getByText('£3,375 (57%)')).toBeVisible();
+    await expect(page.getByText('Switch Dinner to Brunch')).toBeVisible();
+    await expect(page.getByText('Saves about £1,375')).toBeVisible();
+    await expect(page.getByText(/about £875 above your budget of £5,000/)).toBeVisible();
     await savedRow(id, 'revising');
 
-    await page.getByRole('link', { name: 'Change this: Switch Dinner to Lunch' }).click();
+    await page.getByRole('link', { name: 'Change this: Switch Dinner to Brunch' }).click();
     await expect(page).toHaveURL(/\/plan\/food\?return=estimate/);
     await page.getByRole('button', { name: 'Dinner', exact: true }).click();
-    await page.getByRole('button', { name: 'Lunch', exact: true }).click();
+    await page.getByRole('button', { name: 'Brunch', exact: true }).click();
     await page.getByRole('button', { name: 'Continue' }).click();
 
+    // Brunch has menus, so its menu is asked before going back to the estimate.
+    await expect(page).toHaveURL(/\/plan\/menu-brunch\?return=estimate/);
+    await page.getByRole('button', { name: /The Sunday Table/ }).click();
+
     await expect(page).toHaveURL(/\/plan\/estimate/);
-    await expect(page.getByText('£2,560 - £6,900')).toBeVisible();
+    await expect(page.getByText('£3,500 - £5,500')).toBeVisible();
+    await expect(page.getByText(': The Sunday Table')).toBeVisible();
     const payload = await savedRow(id, 'estimated');
-    expect(payload.estimate.midpoint).toBe(473_000);
+    expect(payload.estimate.midpoint).toBe(450_000);
+    expect(payload.event.food.menus).toEqual({ brunch: 'sunday-table' });
     expect(payload.estimateHistory).toHaveLength(1);
 
     await answer(page, 'Are you happy with this estimate?', 'Yes');
@@ -183,7 +200,7 @@ test.describe('after the estimate', () => {
     await answer(page, 'Would you like to proceed?', 'Yes');
 
     await expect(page).toHaveURL(/\/plan\/deposit/);
-    await expect(page.getByText('£1,236', { exact: true })).toBeVisible();
+    await expect(page.getByText('£1,175', { exact: true })).toBeVisible();
     await expect(page.getByText('To go ahead we ask for a 20% deposit.')).toBeVisible();
     await savedRow(id, 'deposit-pending');
 
@@ -195,7 +212,10 @@ test.describe('after the estimate', () => {
   });
 
   test('an on-request event has no amount and no deposit', async ({ page }) => {
-    const id = await openEstimate(page, { type: 'other-bespoke' });
+    const id = await openEstimate(page, {
+      type: 'other-bespoke',
+      decorations: { items: [], note: null },
+    });
     await expect(page.getByText('Priced on request')).toBeVisible();
     await expect(page.getByText(/not included above/)).toHaveCount(0);
     await expect(page.getByText(/£\d/)).toHaveCount(0);

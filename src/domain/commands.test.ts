@@ -8,11 +8,11 @@ import {
   type PricingContext,
   type RequestCommand,
 } from './commands';
-import { priceTableV1 } from './pricing/table.v1';
+import { priceTableV2 } from './pricing/table.v2';
 import type { EventDetails, EventRequest, RequestStatus } from './request';
 import { isCompleteEvent } from './validation';
 
-const pricing: PricingContext = { table: priceTableV1, config: business };
+const pricing: PricingContext = { table: priceTableV2, config: business };
 const T0 = '2026-11-01T10:00:00.000Z';
 const T1 = '2026-11-01T10:05:00.000Z';
 
@@ -23,13 +23,24 @@ const event: EventDetails = {
   startTime: '18:30',
   endTime: '01:00',
   endsNextDay: true,
-  partySize: 'size-40-60',
-  food: ['dinner'],
-  drinks: ['wine-only'],
-  entertainment: { items: ['dj'], activitiesPreference: null },
+  guests: 50,
+  food: { items: ['dinner'], menus: {}, ownFoodNote: null },
+  drinks: {
+    items: ['wine-only'],
+    packages: { 'wine-only': 'wine-175ml' },
+    times: {},
+    ownDrinksNote: null,
+  },
+  entertainment: {
+    items: ['dj'],
+    times: {
+      dj: { startTime: '18:30', startsNextDay: false, endTime: '23:00', endsNextDay: false },
+    },
+    activitiesPreference: null,
+  },
   decorations: { items: ['flowers'], note: null },
   additionalInfo: '',
-  budget: '2500-5000',
+  budget: 500_000,
 };
 
 const contact = {
@@ -51,8 +62,8 @@ describe('createEstimatedRequest', () => {
   it('calculates the estimate itself and starts at estimated', () => {
     const request = estimated();
     expect(request.status).toBe('estimated');
-    expect(request.estimate?.midpoint).toBe(618_000);
-    expect(request.estimate?.depositAmount).toBe(123_600);
+    expect(request.estimate?.midpoint).toBe(587_500);
+    expect(request.estimate?.depositAmount).toBe(117_500);
     expect(request.statusHistory.map((change) => change.status)).toEqual(['draft', 'estimated']);
   });
 });
@@ -94,17 +105,17 @@ describe('applyCommand', () => {
   });
 
   it('recalculates and resets decisions when the event changes', () => {
-    const cheaper = { ...event, food: ['lunch' as const] };
+    const cheaper = { ...event, food: { ...event.food, items: ['lunch' as const] } };
     const request = run(
       estimated(),
       { type: 'reject-estimate' },
       { type: 'change-event', event: cheaper },
     );
     expect(request.status).toBe('estimated');
-    expect(request.estimate?.midpoint).toBe(473_000);
+    expect(request.estimate?.midpoint).toBe(450_000);
     expect(request.decisions.estimateAccepted).toBeNull();
     expect(request.estimateHistory).toEqual([
-      { at: T1, totalLow: 336_000, totalHigh: 900_000, midpoint: 618_000 },
+      { at: T1, totalLow: 450_000, totalHigh: 725_000, midpoint: 587_500 },
     ]);
   });
 
@@ -120,7 +131,11 @@ describe('applyCommand', () => {
   });
 
   it('keeps a fully on-request event out of the deposit', () => {
-    const bespoke = estimated({ ...event, type: 'other-bespoke' });
+    const bespoke = estimated({
+      ...event,
+      type: 'other-bespoke',
+      decorations: { items: [], note: null },
+    });
     const request = run(bespoke, { type: 'accept-estimate' }, { type: 'proceed' });
     expect(request.status).toBe('accepted');
     expect(request.decisions.proceed).toBe(true);

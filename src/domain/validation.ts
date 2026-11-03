@@ -1,14 +1,21 @@
 import {
-  budgetBands,
+  budgetLimits,
   decorationOptions,
+  drinkPackages,
   drinksOptions,
   entertainmentOptions,
   eventTypes,
+  foodMenus,
   foodOptions,
-  partySizes,
+  guestLimits,
+  isMenuFood,
+  isPackagedDrink,
+  isTimedDrink,
+  isTimedEntertainment,
   type CatalogOption,
 } from './catalog';
-import type { Contact, EventDetails } from './request';
+import type { Contact, EventDetails, TimeSlot } from './request';
+import { isValidSlot } from './times';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -90,29 +97,111 @@ function hasValidTimes(event: Record<string, unknown>): boolean {
   return endsNextDay ? endTime <= '02:00' : endTime > startTime;
 }
 
+const isWholeInRange = (value: unknown, min: number, max: number, step: number) =>
+  typeof value === 'number' &&
+  Number.isInteger(value) &&
+  value >= min &&
+  value <= max &&
+  (value - min) % step === 0;
+
+// The record has exactly one valid entry per selected item that needs one.
+function hasEntries(
+  value: unknown,
+  wanted: readonly string[],
+  isValid: (item: string, entry: unknown) => boolean,
+): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const keys = Object.keys(value);
+  return (
+    keys.length === wanted.length &&
+    wanted.every((item) => keys.includes(item) && isValid(item, value[item]))
+  );
+}
+
+const hasId = (options: readonly { id: string }[], id: unknown) =>
+  options.some((option) => option.id === id);
+
+function isSlotWithin(event: Record<string, unknown>, slot: unknown): boolean {
+  if (
+    !isRecord(slot) ||
+    Object.keys(slot).length !== 4 ||
+    typeof slot.startTime !== 'string' ||
+    typeof slot.startsNextDay !== 'boolean' ||
+    typeof slot.endTime !== 'string' ||
+    typeof slot.endsNextDay !== 'boolean'
+  ) {
+    return false;
+  }
+  return isValidSlot(event as unknown as EventDetails, slot as unknown as TimeSlot);
+}
+
+function isFood(value: unknown): boolean {
+  if (!isRecord(value) || !isSelection(value.items, foodOptions)) {
+    return false;
+  }
+  const items = value.items as string[];
+  return (
+    items.length > 0 &&
+    hasEntries(value.menus, items.filter(isMenuFood), (food, menu) =>
+      isMenuFood(food) ? hasId(foodMenus[food], menu) : false,
+    ) &&
+    isOptionalNote(value.ownFoodNote)
+  );
+}
+
+function isDrinks(value: unknown, event: Record<string, unknown>): boolean {
+  if (!isRecord(value) || !isSelection(value.items, drinksOptions)) {
+    return false;
+  }
+  const items = value.items as string[];
+  return (
+    items.length > 0 &&
+    hasEntries(value.packages, items.filter(isPackagedDrink), (drink, option) =>
+      isPackagedDrink(drink) ? hasId(drinkPackages[drink], option) : false,
+    ) &&
+    hasEntries(value.times, items.filter(isTimedDrink), (_, slot) => isSlotWithin(event, slot)) &&
+    isOptionalNote(value.ownDrinksNote)
+  );
+}
+
+function isEntertainment(value: unknown, event: Record<string, unknown>): boolean {
+  if (!isRecord(value) || !isSelection(value.items, entertainmentOptions)) {
+    return false;
+  }
+  const items = value.items as string[];
+  return (
+    hasEntries(value.times, items.filter(isTimedEntertainment), (_, slot) =>
+      isSlotWithin(event, slot),
+    ) && isOptionalNote(value.activitiesPreference)
+  );
+}
+
 // A finished event: every required answer is present and every id is known.
 export function isCompleteEvent(value: unknown): value is EventDetails {
   if (!isRecord(value)) {
     return false;
   }
-  const { entertainment, decorations } = value;
+  const { decorations } = value;
   return (
     isOption(value.type, eventTypes) &&
     isOptionalNote(value.typeNote) &&
     isCalendarDate(value.date) &&
     hasValidTimes(value) &&
-    isOption(value.partySize, partySizes) &&
-    isSelection(value.food, foodOptions) &&
-    (value.food as unknown[]).length > 0 &&
-    isSelection(value.drinks, drinksOptions) &&
-    (value.drinks as unknown[]).length > 0 &&
-    isRecord(entertainment) &&
-    isSelection(entertainment.items, entertainmentOptions) &&
-    isOptionalNote(entertainment.activitiesPreference) &&
+    isWholeInRange(value.guests, guestLimits.min, guestLimits.max, guestLimits.step) &&
+    isFood(value.food) &&
+    isDrinks(value.drinks, value) &&
+    isEntertainment(value.entertainment, value) &&
     isRecord(decorations) &&
     isSelection(decorations.items, decorationOptions) &&
     isOptionalNote(decorations.note) &&
     isText(value.additionalInfo, MAX_NOTE_LENGTH) &&
-    isOption(value.budget, budgetBands)
+    isWholeInRange(
+      value.budget,
+      budgetLimits.minMinor,
+      budgetLimits.maxMinor,
+      budgetLimits.stepMinor,
+    )
   );
 }

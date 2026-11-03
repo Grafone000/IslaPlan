@@ -1,6 +1,6 @@
 import type { PricingConfig, EstimateInput } from './pricing/engine';
 import { calculateEstimate } from './pricing/engine';
-import type { PriceTable } from './pricing/table.v1';
+import type { PriceTable } from './pricing/table.v2';
 import {
   createDraft,
   transition,
@@ -53,9 +53,9 @@ const openDecisions = {
 export function estimateInputOf(event: EventDetails): EstimateInput {
   return {
     eventType: event.type as EstimateInput['eventType'],
-    partySize: event.partySize as EstimateInput['partySize'],
-    food: event.food,
-    drinks: event.drinks,
+    guests: event.guests as number,
+    food: event.food.items,
+    drinks: event.drinks.items,
     entertainment: event.entertainment.items,
     decorations: event.decorations.items,
   };

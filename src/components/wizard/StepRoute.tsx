@@ -8,24 +8,36 @@ import { PageShell } from '@/components/ui/PageShell';
 import { TextArea } from '@/components/ui/TextArea';
 import { wizardContent as content } from '@/content/wizard';
 import {
-  budgetBands,
+  budgetLimits,
   decorationOptions,
+  drinkPackages,
   drinksOptions,
   entertainmentOptions,
   eventTypes,
+  foodMenus,
   foodOptions,
-  partySizes,
+  guestLimits,
+  isTimedDrink,
+  isTimedEntertainment,
+  itemLabel,
   wizardSteps,
-  type BudgetId,
+  type DrinksId,
+  type EntertainmentId,
   type EventTypeId,
-  type PartySizeId,
+  type FoodId,
+  type StepKind,
   type WizardStepId,
 } from '@/domain/catalog';
-import { estimateStage, type Contact, type EventDetails } from '@/domain/request';
+import { formatMoney } from '@/domain/pricing/format';
+import { estimateStage, type Contact, type EventDetails, type TimeSlot } from '@/domain/request';
 import {
   canVisit,
+  firstIncompleteStep,
   isStepComplete,
+  menuFoodOf,
   nextStep,
+  normalizeEvent,
+  packagedDrinkOf,
   previousStep,
   resumeStep,
   stepsFor,
@@ -33,11 +45,37 @@ import {
 import { requestsApi } from '@/integrations';
 import { ContactStep } from './ContactStep';
 import { DateTimeStep } from './DateTimeStep';
+import { MenuStep } from './MenuStep';
 import { MultiChoiceStep } from './MultiChoiceStep';
 import { SingleChoiceStep } from './SingleChoiceStep';
+import { SliderStep } from './SliderStep';
+import { TimeSlotFields } from './TimeSlotFields';
 import { useWizard } from './WizardProvider';
 
 const ESTIMATE_PATH = '/plan/estimate';
+
+interface StepInfo {
+  title: string;
+  kind: StepKind;
+  required: boolean;
+}
+
+function stepInfo(stepId: WizardStepId): StepInfo | null {
+  const food = menuFoodOf(stepId);
+  if (food) return { title: content.menuTitles[food], kind: 'menu', required: true };
+  const drink = packagedDrinkOf(stepId);
+  if (drink)
+    return {
+      title: content.packageTitles[drink],
+      kind: 'package',
+      required: true,
+    };
+  return wizardSteps.find((candidate) => candidate.id === stepId) ?? null;
+}
+
+const formatGuests = (guests: number) => content.sliders.guestsValue(guests);
+const formatBudget = (budget: number) =>
+  content.sliders.budgetValue(formatMoney(budget), budget >= budgetLimits.maxMinor);
 
 export function StepRoute({
   stepId,
@@ -72,8 +110,8 @@ function Step({
 
   const closed = request !== null && estimateStage(request) === 'closed';
   const allowed = !closed && canVisit(stepId, state, skipContact);
-  const step = wizardSteps.find((candidate) => candidate.id === stepId);
-  const steps = stepsFor(skipContact);
+  const step = stepInfo(stepId);
+  const steps = stepsFor(event, skipContact);
 
   useEffect(() => {
     if (closed) {
@@ -111,10 +149,20 @@ function Step({
   }, [stepId, account]);
 
   function advance(patch: Partial<EventDetails> = {}) {
-    const merged = { ...event, ...patch };
+    const merged = normalizeEvent({ ...event, ...patch });
     dispatch({ type: 'SET_ANSWER', patch });
-    const next = nextStep(stepId, skipContact);
-    if (returnToEstimate || !next) {
+    if (returnToEstimate) {
+      // An edit can add a menu or package question: ask it before going back to the estimate.
+      const missing = firstIncompleteStep({ ...state, event: merged }, skipContact);
+      if (missing && missing !== stepId) {
+        router.push(`/plan/${missing}?return=estimate`);
+      } else {
+        void submit(merged, account ?? contact);
+      }
+      return;
+    }
+    const next = nextStep(stepId, merged, skipContact);
+    if (!next) {
       void submit(merged, account ?? contact);
       return;
     }
@@ -122,13 +170,83 @@ function Step({
     router.push(`/plan/${next}`);
   }
 
+  const setFood = (food: Partial<EventDetails['food']>) =>
+    dispatch({
+      type: 'SET_ANSWER',
+      patch: { food: { ...event.food, ...food } },
+    });
+  const setDrinks = (drinks: Partial<EventDetails['drinks']>) =>
+    dispatch({
+      type: 'SET_ANSWER',
+      patch: { drinks: { ...event.drinks, ...drinks } },
+    });
+  const setEntertainment = (entertainment: Partial<EventDetails['entertainment']>) =>
+    dispatch({
+      type: 'SET_ANSWER',
+      patch: { entertainment: { ...event.entertainment, ...entertainment } },
+    });
+
+  function slotFields(
+    label: string,
+    slot: TimeSlot | undefined,
+    onChange: (slot: TimeSlot) => void,
+  ) {
+    return slot ? (
+      <TimeSlotFields label={label} event={event} slot={slot} onChange={onChange} />
+    ) : null;
+  }
+
+  function drinkDetail(id: DrinksId) {
+    if (isTimedDrink(id)) {
+      return slotFields(itemLabel('drinks', id), event.drinks.times[id], (slot) =>
+        setDrinks({ times: { ...event.drinks.times, [id]: slot } }),
+      );
+    }
+    if (id === 'byo-drinks') {
+      return (
+        <TextArea
+          label={content.notes.ownDrinks}
+          rows={2}
+          value={event.drinks.ownDrinksNote ?? ''}
+          onChange={(change) => setDrinks({ ownDrinksNote: change.target.value })}
+        />
+      );
+    }
+    return null;
+  }
+
+  function entertainmentDetail(id: EntertainmentId) {
+    if (isTimedEntertainment(id)) {
+      return slotFields(itemLabel('entertainment', id), event.entertainment.times[id], (slot) =>
+        setEntertainment({
+          times: { ...event.entertainment.times, [id]: slot },
+        }),
+      );
+    }
+    if (id === 'activities') {
+      return (
+        <TextArea
+          label={content.notes.activities}
+          value={event.entertainment.activitiesPreference ?? ''}
+          onChange={(change) => setEntertainment({ activitiesPreference: change.target.value })}
+        />
+      );
+    }
+    return null;
+  }
+
+  const menuFood = menuFoodOf(stepId);
+  const packagedDrink = packagedDrinkOf(stepId);
+
   if (!allowed || !step) {
     return null;
   }
 
-  const previous = previousStep(stepId, skipContact);
-  const complete = isStepComplete(stepId, state);
-  const showContinue = !['single', 'contact'].includes(step.kind) || stepId === 'event-type';
+  const previous = previousStep(stepId, event, skipContact);
+  // A slider always has a value: the client may keep the one it starts on.
+  const complete = step.kind === 'slider' || isStepComplete(stepId, state);
+  const showContinue =
+    !['single', 'contact', 'menu', 'package'].includes(step.kind) || stepId === 'event-type';
   const eventNeedsNote = event.type === 'other-bespoke';
 
   return (
@@ -170,68 +288,93 @@ function Step({
       )}
 
       {stepId === 'party-size' && (
-        <SingleChoiceStep
-          options={partySizes}
-          selected={event.partySize}
-          onSelect={(partySize) => advance({ partySize: partySize as PartySizeId })}
-        />
+        <>
+          <p className="mt-0 mb-4 text-muted">{content.hints.guests}</p>
+          <SliderStep
+            label={content.sliders.guests}
+            min={guestLimits.min}
+            max={guestLimits.max}
+            step={guestLimits.step}
+            value={event.guests ?? guestLimits.initial}
+            format={formatGuests}
+            onChange={(guests) => dispatch({ type: 'SET_ANSWER', patch: { guests } })}
+          />
+        </>
       )}
 
       {stepId === 'food' && (
-        <MultiChoiceStep
+        <MultiChoiceStep<FoodId>
           options={foodOptions}
-          selected={event.food}
-          onChange={(food) => dispatch({ type: 'SET_ANSWER', patch: { food } })}
+          selected={event.food.items}
+          onChange={(items) => setFood({ items })}
+          renderDetail={(id) =>
+            id === 'own-food' ? (
+              <TextArea
+                label={content.notes.ownFood}
+                rows={2}
+                value={event.food.ownFoodNote ?? ''}
+                onChange={(change) => setFood({ ownFoodNote: change.target.value })}
+              />
+            ) : null
+          }
         />
+      )}
+
+      {menuFood && (
+        <>
+          <p className="mt-0 mb-4 text-muted">{content.hints.menu}</p>
+          <MenuStep
+            menus={foodMenus[menuFood]}
+            selected={event.food.menus[menuFood]}
+            onSelect={(menu) =>
+              advance({
+                food: {
+                  ...event.food,
+                  menus: { ...event.food.menus, [menuFood]: menu },
+                },
+              })
+            }
+          />
+        </>
       )}
 
       {stepId === 'drinks' && (
-        <MultiChoiceStep
+        <MultiChoiceStep<DrinksId>
           options={drinksOptions}
-          selected={event.drinks}
-          onChange={(drinks) => dispatch({ type: 'SET_ANSWER', patch: { drinks } })}
+          selected={event.drinks.items}
+          onChange={(items) => setDrinks({ items })}
+          renderDetail={drinkDetail}
         />
       )}
 
+      {packagedDrink && (
+        <>
+          <p className="mt-0 mb-4 text-muted">{content.hints.package}</p>
+          <SingleChoiceStep
+            options={drinkPackages[packagedDrink]}
+            selected={event.drinks.packages[packagedDrink] ?? null}
+            onSelect={(option) =>
+              advance({
+                drinks: {
+                  ...event.drinks,
+                  packages: {
+                    ...event.drinks.packages,
+                    [packagedDrink]: option,
+                  },
+                },
+              })
+            }
+          />
+        </>
+      )}
+
       {stepId === 'entertainment' && (
-        <div className="flex flex-col gap-4">
-          <div>
-            <MultiChoiceStep
-              options={entertainmentOptions}
-              selected={event.entertainment.items}
-              onChange={(items) =>
-                dispatch({
-                  type: 'SET_ANSWER',
-                  patch: {
-                    entertainment: {
-                      items,
-                      activitiesPreference: items.includes('activities')
-                        ? event.entertainment.activitiesPreference
-                        : null,
-                    },
-                  },
-                })
-              }
-            />
-          </div>
-          {event.entertainment.items.includes('activities') && (
-            <TextArea
-              label={content.notes.activities}
-              value={event.entertainment.activitiesPreference ?? ''}
-              onChange={(change) =>
-                dispatch({
-                  type: 'SET_ANSWER',
-                  patch: {
-                    entertainment: {
-                      ...event.entertainment,
-                      activitiesPreference: change.target.value,
-                    },
-                  },
-                })
-              }
-            />
-          )}
-        </div>
+        <MultiChoiceStep<EntertainmentId>
+          options={entertainmentOptions}
+          selected={event.entertainment.items}
+          onChange={(items) => setEntertainment({ items })}
+          renderDetail={entertainmentDetail}
+        />
       )}
 
       {stepId === 'decorations' && (
@@ -281,10 +424,14 @@ function Step({
       {stepId === 'budget' && (
         <>
           <p className="mt-0 mb-4 text-muted">{content.hints.budget}</p>
-          <SingleChoiceStep
-            options={budgetBands}
-            selected={event.budget}
-            onSelect={(budget) => advance({ budget: budget as BudgetId })}
+          <SliderStep
+            label={content.sliders.budget}
+            min={budgetLimits.minMinor}
+            max={budgetLimits.maxMinor}
+            step={budgetLimits.stepMinor}
+            value={event.budget ?? budgetLimits.initialMinor}
+            format={formatBudget}
+            onChange={(budget) => dispatch({ type: 'SET_ANSWER', patch: { budget } })}
           />
         </>
       )}
@@ -311,7 +458,7 @@ function Step({
 
       {showContinue && (stepId !== 'event-type' || eventNeedsNote) && (
         <div className="mt-6">
-          <Button disabled={!complete || busy} onClick={() => advance()}>
+          <Button disabled={!complete || busy} onClick={() => advance(sliderValue(stepId, event))}>
             {!step.required && isEmptyOptional(stepId, event)
               ? content.actions.skip
               : content.actions.continue}
@@ -337,6 +484,13 @@ function Step({
       )}
     </PageShell>
   );
+}
+
+// The value a slider shows before the client moves it still has to be saved.
+function sliderValue(stepId: WizardStepId, event: EventDetails): Partial<EventDetails> {
+  if (stepId === 'party-size') return { guests: event.guests ?? guestLimits.initial };
+  if (stepId === 'budget') return { budget: event.budget ?? budgetLimits.initialMinor };
+  return {};
 }
 
 function isEmptyOptional(stepId: WizardStepId, event: EventDetails): boolean {

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { business } from '@/config/business';
-import { partySizes } from '../catalog';
+import { guestLimits } from '../catalog';
 import { calculateEstimate, lookupPrice, type EstimateInput } from './engine';
-import { priceTableV1 as table } from './table.v1';
+import { priceTableV2 as table } from './table.v2';
 
 const reference: EstimateInput = {
   eventType: 'wedding',
-  partySize: 'size-40-60',
+  guests: 50,
   food: ['dinner'],
   drinks: ['wine-only'],
   entertainment: ['dj'],
@@ -20,47 +20,79 @@ describe('calculateEstimate', () => {
   it('matches the reference case', () => {
     const result = estimate();
     expect(result.kind).toBe('priced');
-    expect(result.totalLow).toBe(336_000);
-    expect(result.totalHigh).toBe(900_000);
-    expect(result.midpoint).toBe(618_000);
-    expect(result.depositAmount).toBe(123_600);
+    expect(result.guests).toBe(50);
+    expect(result.totalLow).toBe(450_000);
+    expect(result.totalHigh).toBe(725_000);
+    expect(result.midpoint).toBe(587_500);
+    expect(result.depositAmount).toBe(117_500);
     expect(result.depositPercent).toBe(20);
     expect(result.currency).toBe('GBP');
-    expect(result.pricingVersion).toBe('pricing-v1');
+    expect(result.pricingVersion).toBe('pricing-v2');
   });
 
   it('keeps per-person lines in pence', () => {
     expect(estimate().lines).toEqual([
-      { category: 'food', item: 'dinner', lowPerPerson: 5000, highPerPerson: 8500 },
-      { category: 'drinks', item: 'wine-only', lowPerPerson: 1400, highPerPerson: 2500 },
-      { category: 'entertainment', item: 'dj', lowPerPerson: 1100, highPerPerson: 2000 },
-      { category: 'decorations', item: 'flowers', lowPerPerson: 900, highPerPerson: 2000 },
+      {
+        category: 'food',
+        item: 'dinner',
+        lowPerPerson: 5000,
+        highPerPerson: 8500,
+      },
+      {
+        category: 'drinks',
+        item: 'wine-only',
+        lowPerPerson: 1400,
+        highPerPerson: 2500,
+      },
+      {
+        category: 'entertainment',
+        item: 'dj',
+        lowPerPerson: 1100,
+        highPerPerson: 2000,
+      },
+      {
+        category: 'decorations',
+        item: 'flowers',
+        lowPerPerson: 1500,
+        highPerPerson: 1500,
+      },
     ]);
   });
 
   it('sums several items in one category', () => {
     const result = estimate({ food: ['dinner', 'canapes'] });
     expect(result.lines.filter((line) => line.category === 'food')).toHaveLength(2);
-    expect(result.totalLow).toBe((84 + 20) * 100 * 40);
-    expect(result.totalHigh).toBe((150 + 35) * 100 * 60);
+    expect(result.totalLow).toBe((90 + 20) * 100 * 50);
+    expect(result.totalHigh).toBe((145 + 35) * 100 * 50);
   });
 
-  it.each(partySizes.map((size) => [size.id, size.guestsMin, size.guestsMax] as const))(
-    'uses the guest limits of %s',
-    (partySize, guestsMin, guestsMax) => {
-      const result = estimate({ partySize });
-      expect(result.guestsMin).toBe(guestsMin);
-      expect(result.guestsMax).toBe(guestsMax);
-      expect(result.totalLow).toBe(84 * 100 * guestsMin);
-      expect(result.totalHigh).toBe(150 * 100 * guestsMax);
-    },
-  );
+  it.each([guestLimits.min, 37, guestLimits.max])('multiplies by exactly %i guests', (guests) => {
+    const result = estimate({ guests });
+    expect(result.guests).toBe(guests);
+    expect(result.totalLow).toBe(90 * 100 * guests);
+    expect(result.totalHigh).toBe(145 * 100 * guests);
+  });
+
+  it('charges £15 per person for Flowers and for Balloons', () => {
+    const result = estimate({ decorations: ['flowers', 'balloons'] });
+    expect(result.totalLow).toBe((90 + 15) * 100 * 50);
+    expect(result.totalHigh).toBe((145 + 15) * 100 * 50);
+  });
+
+  it('prices Brunch like Lunch', () => {
+    expect(estimate({ food: ['brunch'] }).totalLow).toBe(estimate({ food: ['lunch'] }).totalLow);
+  });
+
+  it('leaves own food out of the estimate without making it on request', () => {
+    const result = estimate({ food: ['dinner', 'own-food'] });
+    expect(result).toEqual(estimate());
+  });
 
   it('ignores skipped categories', () => {
     const result = estimate({ entertainment: [], decorations: [] });
     expect(result.kind).toBe('priced');
     expect(result.lines).toHaveLength(2);
-    expect(result.totalLow).toBe((50 + 14) * 100 * 40);
+    expect(result.totalLow).toBe((50 + 14) * 100 * 50);
   });
 
   it('leaves on-request items out of a partial estimate and bases the deposit on the rest', () => {
@@ -72,11 +104,24 @@ describe('calculateEstimate', () => {
     expect(result.depositAmount).toBe(priced.depositAmount);
   });
 
-  it('gives no amounts for an Other/Bespoke event', () => {
+  it('prices only Flowers for an Other/Bespoke event', () => {
     const result = estimate({ eventType: 'other-bespoke' });
+    expect(result.kind).toBe('partial');
+    expect(result.lines).toEqual([
+      {
+        category: 'decorations',
+        item: 'flowers',
+        lowPerPerson: 1500,
+        highPerPerson: 1500,
+      },
+    ]);
+    expect(result.onRequestItems).toHaveLength(3);
+  });
+
+  it('gives no amounts for an Other/Bespoke event without Flowers or Balloons', () => {
+    const result = estimate({ eventType: 'other-bespoke', decorations: [] });
     expect(result.kind).toBe('on-request');
     expect(result.lines).toEqual([]);
-    expect(result.onRequestItems).toHaveLength(4);
     expect(result.totalLow).toBeNull();
     expect(result.totalHigh).toBeNull();
     expect(result.midpoint).toBeNull();
@@ -84,22 +129,30 @@ describe('calculateEstimate', () => {
   });
 
   it('gives no amounts when nothing is selected', () => {
-    const result = estimate({ food: [], drinks: [], entertainment: [], decorations: [] });
+    const result = estimate({
+      food: [],
+      drinks: [],
+      entertainment: [],
+      decorations: [],
+    });
     expect(result.kind).toBe('on-request');
     expect(result.onRequestItems).toEqual([]);
     expect(result.depositAmount).toBeNull();
   });
 
   it('rounds the deposit to a whole pence', () => {
-    const result = estimate({}, { ...business, depositPercent: 12.345 } as never);
-    expect(result.depositAmount).toBe(Math.round((618_000 * 12.345) / 100));
+    const result = estimate({}, {
+      ...business,
+      depositPercent: 12.345,
+    } as never);
+    expect(result.depositAmount).toBe(Math.round((587_500 * 12.345) / 100));
     expect(Number.isInteger(result.depositAmount)).toBe(true);
   });
 
-  it('always returns whole pence for every event, item and party size', () => {
+  it('always returns whole pence for every event and number of guests', () => {
     for (const eventType of table.columns) {
-      for (const size of partySizes) {
-        const result = estimate({ eventType, partySize: size.id });
+      for (let guests = guestLimits.min; guests <= guestLimits.max; guests += 1) {
+        const result = estimate({ eventType, guests });
         for (const value of [result.totalLow, result.totalHigh, result.midpoint]) {
           expect(value === null || Number.isInteger(value)).toBe(true);
         }
@@ -111,7 +164,7 @@ describe('calculateEstimate', () => {
     const noisy = {
       ...reference,
       date: '2027-05-14',
-      budget: 'under-1000',
+      budget: 100_000,
       additionalInfo: 'Anything',
     };
     expect(calculateEstimate(noisy, table, business)).toEqual(estimate());

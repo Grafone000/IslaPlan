@@ -30,13 +30,24 @@ const event = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  partySize: 'size-40-60',
-  food: ['dinner'],
-  drinks: ['wine-only'],
-  entertainment: { items: ['dj'], activitiesPreference: null },
+  guests: 50,
+  food: { items: ['dinner'], menus: {}, ownFoodNote: null },
+  drinks: {
+    items: ['wine-only'],
+    packages: { 'wine-only': 'wine-175ml' },
+    times: {},
+    ownDrinksNote: null,
+  },
+  entertainment: {
+    items: ['dj'],
+    times: {
+      dj: { startTime: '18:30', startsNextDay: false, endTime: '23:00', endsNextDay: false },
+    },
+    activitiesPreference: null,
+  },
   decorations: { items: ['flowers'], note: null },
   additionalInfo: '',
-  budget: '2500-5000',
+  budget: 500_000,
 };
 
 test.describe('with Supabase', () => {
@@ -166,9 +177,9 @@ test.describe('with Supabase', () => {
     expect(row.account_id).toBe(userId);
     expect(row.contact_email).toBe(email);
     expect(row.event_date).toBe('2027-05-14');
-    expect(row.payload.estimate.totalLow).toBe(336_000);
-    expect(row.payload.estimate.totalHigh).toBe(900_000);
-    expect(row.payload.estimate.depositAmount).toBe(123_600);
+    expect(row.payload.estimate.totalLow).toBe(450_000);
+    expect(row.payload.estimate.totalHigh).toBe(725_000);
+    expect(row.payload.estimate.depositAmount).toBe(117_500);
 
     const notYet = await page.request.patch(`/api/requests/${id}`, { data: { type: 'proceed' } });
     expect(notYet.status()).toBe(409);

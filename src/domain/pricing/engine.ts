@@ -1,19 +1,17 @@
-import {
-  partySizes,
-  type DecorationId,
-  type DrinksId,
-  type EntertainmentId,
-  type EventTypeId,
-  type FoodId,
-  type PartySizeId,
-  type PricedCategory,
+import type {
+  DecorationId,
+  DrinksId,
+  EntertainmentId,
+  EventTypeId,
+  FoodId,
+  PricedCategory,
 } from '../catalog';
 import type { Estimate, EstimateItemRef, EstimateLine } from '../request';
-import type { PriceRange, PriceRow, PriceTable } from './table.v1';
+import type { PriceRange, PriceRow, PriceTable } from './table.v2';
 
 export interface EstimateInput {
   eventType: EventTypeId;
-  partySize: PartySizeId;
+  guests: number;
   food: readonly FoodId[];
   drinks: readonly DrinksId[];
   entertainment: readonly EntertainmentId[];
@@ -48,27 +46,30 @@ export function lookupPrice(
   return row[table.columns.indexOf(eventType)] ?? null;
 }
 
+const isFree = (price: PriceRange) => price[0] === 0 && price[1] === 0;
+
 export function calculateEstimate(
   input: EstimateInput,
   table: PriceTable,
   config: PricingConfig,
 ): Estimate {
-  const { guestsMin, guestsMax } = partySizeById(input.partySize);
+  const { guests } = input;
   const lines: EstimateLine[] = [];
   const onRequestItems: EstimateItemRef[] = [];
 
   for (const category of pricedCategories) {
     for (const item of input[category]) {
       const price = lookupPrice(table, input.eventType, category, item);
-      if (price) {
+      if (!price) {
+        onRequestItems.push({ category, item });
+      } else if (!isFree(price)) {
+        // Free items, such as food the client brings, are neither a cost nor a question.
         lines.push({
           category,
           item,
           lowPerPerson: price[0] * PENCE_PER_POUND,
           highPerPerson: price[1] * PENCE_PER_POUND,
         });
-      } else {
-        onRequestItems.push({ category, item });
       }
     }
   }
@@ -76,8 +77,7 @@ export function calculateEstimate(
   const base = {
     pricingVersion: table.version,
     currency: config.currency,
-    guestsMin,
-    guestsMax,
+    guests,
     lines,
     onRequestItems,
     depositPercent: config.depositPercent,
@@ -94,8 +94,8 @@ export function calculateEstimate(
     };
   }
 
-  const totalLow = sum(lines.map((line) => line.lowPerPerson)) * guestsMin;
-  const totalHigh = sum(lines.map((line) => line.highPerPerson)) * guestsMax;
+  const totalLow = sum(lines.map((line) => line.lowPerPerson)) * guests;
+  const totalHigh = sum(lines.map((line) => line.highPerPerson)) * guests;
   const midpoint = (totalLow + totalHigh) / 2;
 
   return {
@@ -106,14 +106,6 @@ export function calculateEstimate(
     midpoint,
     depositAmount: Math.round((midpoint * config.depositPercent) / 100),
   };
-}
-
-function partySizeById(id: PartySizeId) {
-  const size = partySizes.find((candidate) => candidate.id === id);
-  if (!size) {
-    throw new Error(`Unknown party size: ${id}`);
-  }
-  return size;
 }
 
 function sum(values: readonly number[]): number {

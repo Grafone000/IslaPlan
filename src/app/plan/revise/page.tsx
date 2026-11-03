@@ -10,19 +10,19 @@ import { PageShell } from '@/components/ui/PageShell';
 import { useWizard } from '@/components/wizard/WizardProvider';
 import { business } from '@/config/business';
 import { estimateContent } from '@/content/estimate';
-import { budgetBands, itemLabel } from '@/domain/catalog';
+import { itemLabel } from '@/domain/catalog';
 import { estimateInputOf } from '@/domain/commands';
 import { analyseCostDrivers, type Suggestion } from '@/domain/pricing/drivers';
 import { formatMoney } from '@/domain/pricing/format';
-import { priceTableV1 } from '@/domain/pricing/table.v1';
+import { priceTableV2 } from '@/domain/pricing/table.v2';
 import { estimateStage } from '@/domain/request';
 
 const content = estimateContent.revise;
 
 function describe(suggestion: Suggestion): string {
   switch (suggestion.kind) {
-    case 'smaller-party':
-      return content.smallerParty(suggestion.to);
+    case 'fewer-guests':
+      return content.fewerGuests(suggestion.to);
     case 'swap-item':
       return content.swap(
         itemLabel(suggestion.category, suggestion.from),
@@ -34,7 +34,7 @@ function describe(suggestion: Suggestion): string {
 }
 
 const stepOf = (suggestion: Suggestion) =>
-  suggestion.kind === 'smaller-party' ? 'party-size' : suggestion.category;
+  suggestion.kind === 'fewer-guests' ? 'party-size' : suggestion.category;
 
 const editLink = (step: string) => `/plan/${step}?return=estimate`;
 
@@ -67,10 +67,10 @@ export default function RevisePage() {
   const { midpoint, drivers, suggestions, budgetGap } = analyseCostDrivers(
     estimateInputOf(request.event),
     request.event.budget,
-    priceTableV1,
+    priceTableV2,
     business,
   );
-  const budgetLabel = budgetBands.find((band) => band.id === budgetGap?.budget)?.label ?? '';
+  const budgetLabel = budgetGap ? formatMoney(budgetGap.budget) : '';
 
   return (
     <PageShell title={content.title} wide>

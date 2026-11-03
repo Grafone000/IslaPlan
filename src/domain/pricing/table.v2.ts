@@ -23,8 +23,10 @@ export interface PriceTable {
 }
 
 // Generated from 6baf2c930_stima_prezzi_eventi.xlsx. Pounds per person, as in the sheet.
-export const priceTableV1: PriceTable = {
-  version: 'pricing-v1',
+// Changes from the sheet in v2, set by the client: Brunch copies Lunch until it has its own
+// prices; own food costs nothing; Flowers and Balloons are a flat £15 per person everywhere.
+export const priceTableV2: PriceTable = {
+  version: 'pricing-v2',
   columns: [
     'wedding',
     'birthday',
@@ -39,9 +41,9 @@ export const priceTableV1: PriceTable = {
   ],
   rows: {
     food: {
-      'private-chef': [
-        [100, 170], [70, 120], [85, 145], [105, 180], [65, 110],
-        [75, 130], [65, 110], [55, 95], [70, 120], null,
+      brunch: [
+        [30, 50], [20, 35], [25, 40], [30, 50], [18, 30],
+        [20, 40], [18, 30], [16, 30], [20, 35], null,
       ],
       lunch: [
         [30, 50], [20, 35], [25, 40], [30, 50], [18, 30],
@@ -51,13 +53,21 @@ export const priceTableV1: PriceTable = {
         [50, 85], [35, 60], [40, 70], [50, 90], [30, 55],
         [40, 65], [30, 55], [30, 50], [35, 60], null,
       ],
+      canapes: [
+        [20, 35], [15, 25], [18, 30], [20, 40], [14, 20],
+        [16, 30], [14, 20], [12, 20], [15, 25], null,
+      ],
       'afternoon-tea': [
         [25, 40], [18, 30], [20, 35], [25, 45], [16, 25],
         [20, 35], [16, 25], [14, 25], [18, 30], null,
       ],
-      canapes: [
-        [20, 35], [15, 25], [18, 30], [20, 40], [14, 20],
-        [16, 30], [14, 20], [12, 20], [15, 25], null,
+      'private-chef': [
+        [100, 170], [70, 120], [85, 145], [105, 180], [65, 110],
+        [75, 130], [65, 110], [55, 95], [70, 120], null,
+      ],
+      'own-food': [
+        [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
+        [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
       ],
     },
     drinks: {
@@ -89,16 +99,10 @@ export const priceTableV1: PriceTable = {
         [20, 35], [15, 25], [17, 30], [20, 30], [20, 30],
         [4, 8], [14, 20], [18, 30], [12, 20], null,
       ],
-      'byo-drinks': [
-        [3, 7], [2, 5], [2, 6], [3, 6], [3, 6],
-        [1, 2], [2, 4], [2, 6], [2, 4], null,
-      ],
+      'byo-drinks': [[3, 7], [2, 5], [2, 6], [3, 6], [3, 6], [1, 2], [2, 4], [2, 6], [2, 4], null],
     },
     entertainment: {
-      dj: [
-        [11, 20], [8, 15], [9, 16], [5, 9], [10, 20],
-        [5, 9], [7, 14], [9, 16], [6, 10], null,
-      ],
+      dj: [[11, 20], [8, 15], [9, 16], [5, 9], [10, 20], [5, 9], [7, 14], [9, 16], [6, 10], null],
       'live-music': [
         [17, 35], [12, 25], [13, 30], [7, 15], [16, 30],
         [7, 15], [11, 20], [13, 30], [8, 18], null,
@@ -110,21 +114,18 @@ export const priceTableV1: PriceTable = {
     },
     decorations: {
       flowers: [
-        [9, 20], [6, 15], [7, 18], [10, 25], [5, 12],
-        [7, 18], [5, 14], [4, 10], [4, 10], null,
+        [15, 15], [15, 15], [15, 15], [15, 15], [15, 15],
+        [15, 15], [15, 15], [15, 15], [15, 15], [15, 15],
       ],
       balloons: [
-        [3, 9], [2, 6], [2, 7], [3, 10], [2, 5],
-        [2, 7], [2, 5], [1, 4], [1, 4], null,
+        [15, 15], [15, 15], [15, 15], [15, 15], [15, 15],
+        [15, 15], [15, 15], [15, 15], [15, 15], [15, 15],
       ],
       'personalised-items': [
         [6, 18], [4, 12], [5, 14], [6, 19], [3, 10],
         [5, 14], [4, 11], [3, 8], [3, 8], null,
       ],
-      'other-bespoke': [
-        null, null, null, null, null,
-        null, null, null, null, null,
-      ],
+      'other-bespoke': [null, null, null, null, null, null, null, null, null, null],
     },
   },
 };

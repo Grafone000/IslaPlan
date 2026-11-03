@@ -10,7 +10,8 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 
 | Item | Detail |
 |---|---|
-| Prices not validated | The Excel sheet is a first working estimate, to be checked against real supplier quotes |
+| Prices not validated | The Excel sheet is a first working estimate, to be checked against real supplier quotes. Brunch has no prices of its own: it copies Lunch |
+| Menus and drinks packages have no price | The chosen menu, chef, number of cocktails or wine size are saved but do not change the estimate. A private chef costs the same whichever chef is chosen |
 | Real payment | `PaymentProvider` and `PaymentGateway` are stubs: Stripe still to connect, with a server-side webhook. The stub gateway believes what the browser reports, so today anyone with a request id could mark its deposit as paid. Harmless with no real money, but it must not reach production |
 | Real email | `EmailGateway` is a stub: messages are stored but nobody receives them |
 | Staff tools | With no CRM, staff can only see requests, reply to messages and upload photos from the Supabase dashboard |
@@ -27,6 +28,7 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 |---|---|
 | Intermittent Supabase connection timeouts | Some connections fail after 10 seconds with `UND_ERR_CONNECT_TIMEOUT`, then work again. Seen in a probe (2 of 6) and in several test runs, always on Node. Ruled out so far: keys, DNS (IPv4 only) and a bad address (both addresses answered 16 of 16 raw connections). Cause unknown: try another network or without VPN/antivirus filtering. A client would see "We couldn't save your request" and can retry. The RLS test retries the connection for this reason |
 | End-to-end tests fail now and then | Tests that log in or call Supabase sometimes fail on the connection timeout above, then pass when rerun alone. Seen with the private area tests in M10. Rerun a failing Supabase test before treating it as a real failure |
+| App not reachable from other devices in development | `npm run dev` only serves this PC. Next prints the NordVPN address (`100.x`), which a phone cannot reach, and Next 16 blocks its dev scripts on any address not listed in `allowedDevOrigins`. To show the app to anyone else, deploy it (Vercel) instead |
 | Organiser replies are awkward to add | Replies go in by hand in the Supabase dashboard, as editor JSON. Fine for testing, not for daily use: the CRM should own this |
 
 ### Unverified
@@ -50,4 +52,5 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Resuming an event from the private area | An open event shows in My area, but the client can only carry on with the estimate from the browser that started it |
 | Photo size | Event photos load at full size, because signed links skip the image optimiser. Slow on a phone if staff upload large files |
 | Message dates | Messages show the date only, in UTC, with no time |
-| Wide estimate ranges | The high total combines high prices with maximum guests. See `docs/pricing-rules.md` |
+| Old requests without menus | Requests saved before schema 2 are read with guests and budget set to the top of their old band, and no menus or packages. If such a client edits the event, the wizard asks for the missing answers. Only test data exists today |
+| Service times reset when the event hours change | Changing the event start or end resets a bartender, sommelier, DJ or live music slot that no longer fits to the whole event, without telling the client |

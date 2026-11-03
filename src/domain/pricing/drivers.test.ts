@@ -1,30 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { business } from '@/config/business';
-import {
-  drinksOptions,
-  foodOptions,
-  partySizes,
-  type CatalogOption,
-} from '../catalog';
+import { drinksOptions, foodOptions, guestLimits, type CatalogOption } from '../catalog';
 import { analyseCostDrivers, type Suggestion } from './drivers';
 import { calculateEstimate, type EstimateInput } from './engine';
-import { priceTableV1 as table } from './table.v1';
+import { priceTableV2 as table } from './table.v2';
 
 const reference: EstimateInput = {
   eventType: 'wedding',
-  partySize: 'size-40-60',
+  guests: 50,
   food: ['dinner'],
   drinks: ['wine-only'],
   entertainment: ['dj'],
   decorations: ['flowers'],
 };
 
-const analyse = (input: Partial<EstimateInput> = {}, budget: '2500-5000' | 'over-10000' | null = null) =>
+const analyse = (input: Partial<EstimateInput> = {}, budget: number | null = null) =>
   analyseCostDrivers({ ...reference, ...input }, budget, table, business);
 
 function applySuggestion(input: EstimateInput, suggestion: Suggestion): EstimateInput {
-  if (suggestion.kind === 'smaller-party') {
-    return { ...input, partySize: suggestion.to };
+  if (suggestion.kind === 'fewer-guests') {
+    return { ...input, guests: suggestion.to };
   }
   const items: readonly string[] = input[suggestion.category];
   const changed =
@@ -42,12 +37,12 @@ const hasConflict = (selected: readonly string[], options: readonly CatalogOptio
 describe('analyseCostDrivers', () => {
   it('ranks items by their share of the midpoint in the reference case', () => {
     const { midpoint, drivers } = analyse();
-    expect(midpoint).toBe(618_000);
+    expect(midpoint).toBe(587_500);
     expect(drivers.map(({ item, amount, sharePercent }) => [item, amount, sharePercent])).toEqual([
-      ['dinner', 355_000, 57],
-      ['wine-only', 103_000, 17],
-      ['dj', 82_000, 13],
-      ['flowers', 78_000, 13],
+      ['dinner', 337_500, 57],
+      ['wine-only', 97_500, 17],
+      ['dj', 77_500, 13],
+      ['flowers', 75_000, 13],
     ]);
   });
 
@@ -58,14 +53,25 @@ describe('analyseCostDrivers', () => {
 
   it('suggests the biggest savings first, at most three', () => {
     expect(analyse().suggestions).toEqual([
-      { kind: 'smaller-party', from: 'size-40-60', to: 'size-20-40', saving: 234_000 },
-      { kind: 'swap-item', category: 'food', from: 'dinner', to: 'lunch', saving: 145_000 },
-      { kind: 'remove-item', category: 'entertainment', item: 'dj', saving: 82_000 },
+      {
+        kind: 'swap-item',
+        category: 'food',
+        from: 'dinner',
+        to: 'brunch',
+        saving: 137_500,
+      },
+      { kind: 'fewer-guests', from: 50, to: 40, saving: 117_500 },
+      {
+        kind: 'remove-item',
+        category: 'entertainment',
+        item: 'dj',
+        saving: 77_500,
+      },
     ]);
   });
 
   it('never suggests removing the only item of a required step', () => {
-    const removals = analyse({ partySize: 'size-10-20' }).suggestions.filter(
+    const removals = analyse({ guests: guestLimits.min }).suggestions.filter(
       (suggestion) => suggestion.kind === 'remove-item',
     );
     expect(removals.every((s) => s.kind === 'remove-item' && s.category !== 'food')).toBe(true);
@@ -78,24 +84,29 @@ describe('analyseCostDrivers', () => {
       kind: 'remove-item',
       category: 'food',
       item: 'dinner',
-      saving: 355_000,
+      saving: 337_500,
     });
   });
 
-  it('has no smaller party suggestion at the smallest size', () => {
-    const { suggestions } = analyse({ partySize: 'size-10-20' });
-    expect(suggestions.some((suggestion) => suggestion.kind === 'smaller-party')).toBe(false);
+  it('has no fewer guests suggestion at the minimum', () => {
+    const { suggestions } = analyse({ guests: guestLimits.min });
+    expect(suggestions.some((suggestion) => suggestion.kind === 'fewer-guests')).toBe(false);
+  });
+
+  it('never suggests fewer guests than the minimum', () => {
+    const fewer = analyse({ guests: 15 }).suggestions.find((s) => s.kind === 'fewer-guests');
+    expect(fewer).toMatchObject({ from: 15, to: guestLimits.min });
   });
 
   it('every suggestion lowers the estimate by exactly its saving and stays valid', () => {
     for (const eventType of table.columns) {
-      for (const size of partySizes) {
+      for (const guests of [guestLimits.min, 15, 50, guestLimits.max]) {
         for (const food of [['private-chef'], ['dinner', 'canapes'], ['afternoon-tea']] as const) {
           for (const drinks of [['drinks-all'], ['wine-tasting', 'byo-drinks']] as const) {
             const input: EstimateInput = {
               ...reference,
               eventType,
-              partySize: size.id,
+              guests,
               food,
               drinks,
             };
@@ -123,20 +134,19 @@ describe('analyseCostDrivers', () => {
   });
 
   it('shows the distance from the budget', () => {
-    expect(analyse({}, '2500-5000').budgetGap).toEqual({
-      budget: '2500-5000',
-      budgetMax: 500_000,
-      difference: 118_000,
+    expect(analyse({}, 500_000).budgetGap).toEqual({
+      budget: 500_000,
+      difference: 87_500,
     });
   });
 
-  it('has no budget gap for the open-ended band or without a budget', () => {
-    expect(analyse({}, 'over-10000').budgetGap).toBeNull();
+  it('has no budget gap at the top of the slider or without a budget', () => {
+    expect(analyse({}, 2_000_000).budgetGap).toBeNull();
     expect(analyse({}, null).budgetGap).toBeNull();
   });
 
   it('has nothing to show for an on-request event', () => {
-    expect(analyse({ eventType: 'other-bespoke' }, '2500-5000')).toEqual({
+    expect(analyse({ eventType: 'other-bespoke', decorations: [] }, 500_000)).toEqual({
       midpoint: null,
       drivers: [],
       suggestions: [],

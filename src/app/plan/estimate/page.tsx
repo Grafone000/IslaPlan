@@ -39,7 +39,7 @@ export default function EstimatePage() {
   return (
     <PageShell title={content.title} wide>
       <div className="mt-6">
-        <EstimateSummary estimate={request.estimate} partySize={request.event.partySize ?? ''} />
+        <EstimateSummary estimate={request.estimate} event={request.event} />
       </div>
 
       {stage === 'accept' && (

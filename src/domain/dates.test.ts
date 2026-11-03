@@ -21,7 +21,7 @@ describe('formatShortDate', () => {
 
 describe('guestsText', () => {
   it('reads naturally inside a sentence', () => {
-    expect(guestsText('size-40-60')).toBe('40 to 60 guests');
-    expect(guestsText('size-up-to-100')).toBe('up to 100 guests');
+    expect(guestsText(50)).toBe('50 guests');
+    expect(guestsText(1)).toBe('1 guest');
   });
 });

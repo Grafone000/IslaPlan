@@ -1,8 +1,29 @@
-import { wizardSteps, type CatalogOption, type WizardStepId } from './catalog';
-import { createDraft, type Contact, type EventDetails, type EventRequest } from './request';
+import {
+  isMenuFood,
+  isPackagedDrink,
+  isTimedDrink,
+  isTimedEntertainment,
+  menuFoods,
+  packagedDrinks,
+  wizardSteps,
+  type CatalogOption,
+  type MenuFood,
+  type PackagedDrink,
+  type WizardStepId,
+} from './catalog';
+import {
+  createDraft,
+  type Contact,
+  type EventDetails,
+  type EventRequest,
+  type TimeSlot,
+} from './request';
+import { isValidSlot, wholeEventSlot } from './times';
 import { isContact } from './validation';
 
-export const DRAFT_VERSION = 1;
+export { endTimes, isValidEnd, startTimes } from './times';
+
+export const DRAFT_VERSION = 2;
 
 export interface WizardState {
   draftVersion: typeof DRAFT_VERSION;
@@ -21,12 +42,30 @@ export type WizardAction =
   | { type: 'SET_REQUEST'; request: EventRequest }
   | { type: 'RESET'; id: string; at: string };
 
-const stepOrder: readonly WizardStepId[] = wizardSteps.map((step) => step.id);
+export const menuStep = (food: MenuFood): WizardStepId => `menu-${food}`;
+export const packageStep = (drink: PackagedDrink): WizardStepId => `package-${drink}`;
 
-const indexOf = (step: WizardStepId) => stepOrder.indexOf(step);
+export function menuFoodOf(step: WizardStepId): MenuFood | null {
+  const food = step.startsWith('menu-') ? step.slice('menu-'.length) : '';
+  return isMenuFood(food) ? food : null;
+}
+
+export function packagedDrinkOf(step: WizardStepId): PackagedDrink | null {
+  const drink = step.startsWith('package-') ? step.slice('package-'.length) : '';
+  return isPackagedDrink(drink) ? drink : null;
+}
+
+// Every step that can exist, in order. The steps a client sees are a subset of it.
+const allSteps: readonly WizardStepId[] = wizardSteps.flatMap((step): WizardStepId[] => {
+  if (step.id === 'food') return [step.id, ...menuFoods.map(menuStep)];
+  if (step.id === 'drinks') return [step.id, ...packagedDrinks.map(packageStep)];
+  return [step.id];
+});
+
+const indexOf = (step: WizardStepId) => allSteps.indexOf(step);
 
 export const isWizardStep = (value: string): value is WizardStepId =>
-  stepOrder.includes(value as WizardStepId);
+  allSteps.includes(value as WizardStepId);
 
 export function createWizardState(id: string, at: string): WizardState {
   return {
@@ -34,7 +73,7 @@ export function createWizardState(id: string, at: string): WizardState {
     id,
     event: createDraft(id, at).event,
     contact: { firstName: '', lastName: '', email: '', phone: '' },
-    furthest: stepOrder[0],
+    furthest: allSteps[0],
     request: null,
   };
 }
@@ -44,7 +83,10 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
     case 'LOAD':
       return action.state;
     case 'SET_ANSWER':
-      return { ...state, event: { ...state.event, ...action.patch } };
+      return {
+        ...state,
+        event: normalizeEvent({ ...state.event, ...action.patch }),
+      };
     case 'SET_CONTACT':
       return { ...state, contact: action.contact };
     case 'REACH':
@@ -58,23 +100,78 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
   }
 }
 
-export function stepsFor(skipContact: boolean): readonly WizardStepId[] {
-  return skipContact ? stepOrder.filter((step) => step !== 'contact') : stepOrder;
+function pick<Key extends string, Value>(
+  record: Partial<Record<Key, Value>>,
+  keys: readonly Key[],
+  fill?: (key: Key, value: Value | undefined) => Value | undefined,
+): Partial<Record<Key, Value>> {
+  const result: Partial<Record<Key, Value>> = {};
+  for (const key of keys) {
+    const value = fill ? fill(key, record[key]) : record[key];
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+// Keeps the follow-up answers in step with the chosen items: answers for removed items go,
+// and every timed service gets the whole event as its slot until the client narrows it.
+export function normalizeEvent(event: EventDetails): EventDetails {
+  const fitSlot = (_: string, slot: TimeSlot | undefined) =>
+    slot && isValidSlot(event, slot) ? slot : (wholeEventSlot(event) ?? undefined);
+  const { food, drinks, entertainment } = event;
+  return {
+    ...event,
+    food: {
+      items: food.items,
+      menus: pick(food.menus, food.items.filter(isMenuFood)),
+      ownFoodNote: food.items.includes('own-food') ? food.ownFoodNote : null,
+    },
+    drinks: {
+      items: drinks.items,
+      packages: pick(drinks.packages, drinks.items.filter(isPackagedDrink)),
+      times: pick(drinks.times, drinks.items.filter(isTimedDrink), fitSlot),
+      ownDrinksNote: drinks.items.includes('byo-drinks') ? drinks.ownDrinksNote : null,
+    },
+    entertainment: {
+      items: entertainment.items,
+      times: pick(entertainment.times, entertainment.items.filter(isTimedEntertainment), fitSlot),
+      activitiesPreference: entertainment.items.includes('activities')
+        ? entertainment.activitiesPreference
+        : null,
+    },
+  };
+}
+
+export function stepsFor(event: EventDetails, skipContact: boolean): readonly WizardStepId[] {
+  return allSteps.filter((step) => {
+    if (step === 'contact') return !skipContact;
+    const food = menuFoodOf(step);
+    if (food) return event.food.items.includes(food);
+    const drink = packagedDrinkOf(step);
+    if (drink) return event.drinks.items.includes(drink);
+    return true;
+  });
 }
 
 export function isStepComplete(step: WizardStepId, state: WizardState): boolean {
   const { event, contact } = state;
+  const food = menuFoodOf(step);
+  if (food) return event.food.menus[food] !== undefined;
+  const drink = packagedDrinkOf(step);
+  if (drink) return event.drinks.packages[drink] !== undefined;
   switch (step) {
     case 'event-type':
       return event.type !== null;
     case 'date-time':
       return event.date !== null && event.startTime !== null && event.endTime !== null;
     case 'party-size':
-      return event.partySize !== null;
+      return event.guests !== null;
     case 'food':
-      return event.food.length > 0;
+      return event.food.items.length > 0;
     case 'drinks':
-      return event.drinks.length > 0;
+      return event.drinks.items.length > 0;
     case 'budget':
       return event.budget !== null;
     case 'contact':
@@ -86,23 +183,39 @@ export function isStepComplete(step: WizardStepId, state: WizardState): boolean 
 
 // Where the client may be: the furthest step reached, or an earlier unanswered one.
 export function resumeStep(state: WizardState, skipContact: boolean): WizardStepId {
-  const steps = stepsFor(skipContact);
+  const steps = stepsFor(state.event, skipContact);
   const limit = Math.min(indexOf(state.furthest), indexOf(steps[steps.length - 1]));
   const missing = steps.find((step) => indexOf(step) < limit && !isStepComplete(step, state));
-  return missing ?? stepOrder[limit];
+  return missing ?? steps.find((step) => indexOf(step) >= limit) ?? steps[steps.length - 1];
+}
+
+// The first unanswered step, for an edit that started from the estimate.
+export function firstIncompleteStep(state: WizardState, skipContact: boolean): WizardStepId | null {
+  return stepsFor(state.event, skipContact).find((step) => !isStepComplete(step, state)) ?? null;
 }
 
 export function canVisit(step: WizardStepId, state: WizardState, skipContact: boolean): boolean {
-  return indexOf(step) <= indexOf(resumeStep(state, skipContact));
+  return (
+    stepsFor(state.event, skipContact).includes(step) &&
+    indexOf(step) <= indexOf(resumeStep(state, skipContact))
+  );
 }
 
-export function nextStep(step: WizardStepId, skipContact: boolean): WizardStepId | null {
-  const steps = stepsFor(skipContact);
+export function nextStep(
+  step: WizardStepId,
+  event: EventDetails,
+  skipContact: boolean,
+): WizardStepId | null {
+  const steps = stepsFor(event, skipContact);
   return steps[steps.indexOf(step) + 1] ?? null;
 }
 
-export function previousStep(step: WizardStepId, skipContact: boolean): WizardStepId | null {
-  const steps = stepsFor(skipContact);
+export function previousStep(
+  step: WizardStepId,
+  event: EventDetails,
+  skipContact: boolean,
+): WizardStepId | null {
+  const steps = stepsFor(event, skipContact);
   return steps[steps.indexOf(step) - 1] ?? null;
 }
 
@@ -121,48 +234,6 @@ export function toggleOption<Id extends string>(
     selected: [...selected.filter((item) => !excludes.includes(item)), id],
     removed: options.filter((o) => selected.includes(o.id as Id) && excludes.includes(o.id)),
   };
-}
-
-const SLOT_MINUTES = 30;
-const FIRST_START = 10 * 60;
-const LAST_START = 23 * 60;
-const LAST_END = 26 * 60; // 02:00 the next day
-
-const toTime = (minutes: number) => {
-  const hours = Math.floor(minutes / 60) % 24;
-  return `${String(hours).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
-};
-
-const toMinutes = (time: string) => {
-  const [hours, minutes] = time.split(':').map(Number);
-  return hours * 60 + minutes;
-};
-
-export function startTimes(): string[] {
-  const times: string[] = [];
-  for (let minutes = FIRST_START; minutes <= LAST_START; minutes += SLOT_MINUTES) {
-    times.push(toTime(minutes));
-  }
-  return times;
-}
-
-export function endTimes(startTime: string): { time: string; endsNextDay: boolean }[] {
-  const times: { time: string; endsNextDay: boolean }[] = [];
-  const first = toMinutes(startTime) + SLOT_MINUTES;
-  for (let minutes = first; minutes <= LAST_END; minutes += SLOT_MINUTES) {
-    times.push({ time: toTime(minutes), endsNextDay: minutes >= 24 * 60 });
-  }
-  return times;
-}
-
-export function isValidEnd(
-  startTime: string,
-  endTime: string | null,
-  endsNextDay: boolean,
-): boolean {
-  return endTimes(startTime).some(
-    (slot) => slot.time === endTime && slot.endsNextDay === endsNextDay,
-  );
 }
 
 export function parseDraft(raw: string | null): WizardState | null {

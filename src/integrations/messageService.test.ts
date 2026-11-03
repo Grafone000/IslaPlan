@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { business } from '@/config/business';
 import { createEstimatedRequest } from '@/domain/commands';
-import { priceTableV1 } from '@/domain/pricing/table.v1';
+import { priceTableV2 } from '@/domain/pricing/table.v2';
 import type { EventDetails, EventRequest } from '@/domain/request';
 import type { EmailMessage, EventMessage, RequestRepository } from './contracts';
 import { MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES, postMessage, type MessageServiceDeps } from './messageService';
@@ -20,13 +20,18 @@ const event: EventDetails = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  partySize: 'size-40-60',
-  food: ['dinner'],
-  drinks: ['wine-only'],
-  entertainment: { items: [], activitiesPreference: null },
+  guests: 50,
+  food: { items: ['dinner'], menus: {}, ownFoodNote: null },
+  drinks: {
+    items: ['wine-only'],
+    packages: { 'wine-only': 'wine-175ml' },
+    times: {},
+    ownDrinksNote: null,
+  },
+  entertainment: { items: [], times: {}, activitiesPreference: null },
   decorations: { items: [], note: null },
   additionalInfo: '',
-  budget: '2500-5000',
+  budget: 500_000,
 };
 const body = {
   type: 'doc',
@@ -43,7 +48,7 @@ let deps: MessageServiceDeps;
 function setup(status: EventRequest['status'], accountId: string | null) {
   const base = createEstimatedRequest(
     { id: ID, accountId, contact, event },
-    { table: priceTableV1, config: business },
+    { table: priceTableV2, config: business },
     '2026-11-01T10:00:00.000Z',
   );
   stored = { ...base, status };

@@ -31,13 +31,18 @@ const eventOn = (date: string) => ({
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  partySize: 'size-20-40',
-  food: ['dinner'],
-  drinks: ['wine-only'],
-  entertainment: { items: [], activitiesPreference: null },
+  guests: 30,
+  food: { items: ['dinner'], menus: {}, ownFoodNote: null },
+  drinks: {
+    items: ['wine-only'],
+    packages: { 'wine-only': 'wine-175ml' },
+    times: {},
+    ownDrinksNote: null,
+  },
+  entertainment: { items: [], times: {}, activitiesPreference: null },
   decorations: { items: [], note: null },
   additionalInfo: '',
-  budget: '2500-5000',
+  budget: 500_000,
 });
 
 const FUTURE = '2030-06-01';
@@ -120,7 +125,7 @@ test.describe('private area', () => {
     await page.goto('/account');
     await page.getByRole('link', { name: 'View Birthday, 10 March 2024' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Birthday' })).toBeVisible();
-    await expect(page.getByText('From 20 to 40')).toBeVisible();
+    await expect(page.getByText('30 guests')).toBeVisible();
     await expect(page.getByText('Estimate ready')).toBeVisible();
 
     const photo = page.getByRole('img', { name: 'Photo from your event: first.png' });

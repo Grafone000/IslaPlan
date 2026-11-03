@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { business } from '@/config/business';
-import { priceTableV1 } from '@/domain/pricing/table.v1';
+import { priceTableV2 } from '@/domain/pricing/table.v2';
 import type { AccountServiceDeps } from './accountService';
 import type { MessageServiceDeps } from './messageService';
 import type { PaymentServiceDeps } from './paymentService';
@@ -62,7 +62,7 @@ export function requestServiceDeps(): RequestServiceDeps {
   return {
     requests: supabaseRequestRepository(adminClient()),
     crm: stubCrmGateway,
-    pricing: { table: priceTableV1, config: business },
+    pricing: { table: priceTableV2, config: business },
     now: () => new Date().toISOString(),
   };
 }

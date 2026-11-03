@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-  budgetBands,
+  budgetLimits,
   decorationOptions,
+  drinkPackages,
   drinksOptions,
   entertainmentOptions,
   eventTypes,
+  foodMenus,
   foodOptions,
-  partySizes,
+  guestLimits,
+  menuFoods,
+  packagedDrinks,
   wizardSteps,
   type CatalogOption,
 } from './catalog';
@@ -29,23 +33,15 @@ describe('catalog ids and labels', () => {
     ]);
   });
 
-  it('matches the agreed party sizes', () => {
-    expect(pairs(partySizes)).toEqual([
-      ['size-10-20', 'From 10 to 20'],
-      ['size-20-40', 'From 20 to 40'],
-      ['size-40-60', 'From 40 to 60'],
-      ['size-60-80', 'From 60 to 80'],
-      ['size-up-to-100', 'Up to 100'],
-    ]);
-  });
-
   it('matches the agreed food options', () => {
     expect(pairs(foodOptions)).toEqual([
-      ['private-chef', 'Private chef'],
+      ['brunch', 'Brunch'],
       ['lunch', 'Lunch'],
       ['dinner', 'Dinner'],
+      ['canapes', 'Canapés'],
       ['afternoon-tea', 'Afternoon tea'],
-      ['canapes', 'Canapes style'],
+      ['private-chef', 'Private chef'],
+      ['own-food', 'I bring my own food'],
     ]);
   });
 
@@ -79,24 +75,49 @@ describe('catalog ids and labels', () => {
     ]);
   });
 
-  it('matches the agreed budget bands', () => {
-    expect(pairs(budgetBands)).toEqual([
-      ['under-1000', 'Under £1,000'],
-      ['1000-2500', '£1,000-£2,500'],
-      ['2500-5000', '£2,500-£5,000'],
-      ['5000-10000', '£5,000-£10,000'],
-      ['over-10000', 'Over £10,000'],
-    ]);
+});
+
+describe('sliders', () => {
+  it('count guests from 10 to 100 one at a time', () => {
+    expect(guestLimits).toMatchObject({ min: 10, max: 100, step: 1 });
+  });
+
+  it('set the budget from £500 to £20,000 in steps of £50', () => {
+    expect(budgetLimits).toMatchObject({ minMinor: 50_000, maxMinor: 2_000_000, stepMinor: 5_000 });
+  });
+
+  it('start on a value they can reach', () => {
+    expect((guestLimits.initial - guestLimits.min) % guestLimits.step).toBe(0);
+    expect((budgetLimits.initialMinor - budgetLimits.minMinor) % budgetLimits.stepMinor).toBe(0);
   });
 });
 
-describe('party sizes', () => {
-  it('are contiguous and do not overlap', () => {
-    partySizes.slice(1).forEach((size, index) => {
-      expect(size.guestsMin).toBe(partySizes[index].guestsMax);
-    });
-    expect(partySizes[0].guestsMin).toBe(10);
-    expect(partySizes.at(-1)?.guestsMax).toBe(100);
+describe('menus and drinks packages', () => {
+  it('offer three menus per food, and five private chefs', () => {
+    expect(menuFoods.map((food) => [food, foodMenus[food].length])).toEqual([
+      ['brunch', 3],
+      ['lunch', 3],
+      ['canapes', 3],
+      ['afternoon-tea', 3],
+      ['private-chef', 5],
+    ]);
+  });
+
+  it('offer four options per drinks package', () => {
+    for (const drink of packagedDrinks) {
+      expect(drinkPackages[drink]).toHaveLength(4);
+    }
+  });
+
+  it('have unique ids within each list', () => {
+    for (const list of [...Object.values(foodMenus), ...Object.values(drinkPackages)]) {
+      expect(new Set(list.map((entry) => entry.id)).size).toBe(list.length);
+    }
+  });
+
+  it('let Wine only and Cocktails/spirits only be chosen together', () => {
+    const wine = drinksOptions.find((option) => option.id === 'wine-only');
+    expect(wine?.excludes).not.toContain('cocktails-spirits-only');
   });
 });
 

@@ -25,13 +25,24 @@ const event = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  partySize: 'size-40-60',
-  food: ['dinner'],
-  drinks: ['wine-only'],
-  entertainment: { items: ['dj'], activitiesPreference: null },
+  guests: 50,
+  food: { items: ['dinner'], menus: {}, ownFoodNote: null },
+  drinks: {
+    items: ['wine-only'],
+    packages: { 'wine-only': 'wine-175ml' },
+    times: {},
+    ownDrinksNote: null,
+  },
+  entertainment: {
+    items: ['dj'],
+    times: {
+      dj: { startTime: '18:30', startsNextDay: false, endTime: '23:00', endsNextDay: false },
+    },
+    activitiesPreference: null,
+  },
   decorations: { items: ['flowers'], note: null },
   additionalInfo: '',
-  budget: '2500-5000',
+  budget: 500_000,
 };
 
 test.describe('consultation email', () => {
@@ -61,7 +72,7 @@ test.describe('consultation email', () => {
     await page.goto('/');
     await page.evaluate(
       ([key, draft]) => localStorage.setItem(key as string, JSON.stringify(draft)),
-      [DRAFT_KEY, { draftVersion: 1, id, event, contact, furthest: 'contact', request }],
+      [DRAFT_KEY, { draftVersion: 2, id, event, contact, furthest: 'contact', request }],
     );
     await page.goto('/plan/estimate');
     await page.getByRole('button', { name: 'Email us' }).click();

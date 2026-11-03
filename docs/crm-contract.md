@@ -2,7 +2,18 @@
 
 The contract between the Event Planner and the future CRM. Types live in `src/domain/request.ts`, option ids in `src/domain/catalog.ts`.
 
-Current version: `schemaVersion: 1`.
+Current version: `schemaVersion: 2`.
+
+### Changes in version 2
+
+- `event.partySize` (a band id) became `event.guests`, a whole number from 10 to 100.
+- `event.budget` (a band id) became a number of pence from 50,000 to 2,000,000, in steps of 5,000. The top value means "£20,000 or more".
+- `event.food` and `event.drinks` became objects with the chosen menus, drinks packages, service times and notes.
+- `event.entertainment` gained `times` for the DJ and live music.
+- `estimate.guestsMin` and `estimate.guestsMax` became `estimate.guests`.
+- New options: Brunch and "I bring my own food".
+
+Rows saved as version 1 stay in the database as they are. The app reads them as version 2: guests and budget become the top of the old band, and menus and packages are empty. The CRM can do the same, or read `schema_version` and handle both.
 
 ## Rules
 
@@ -10,6 +21,7 @@ Current version: `schemaVersion: 1`.
 - Option ids are stable. Labels are not stored: the CRM resolves ids through the catalog.
 - All amounts are integer pence. All timestamps are ISO 8601 UTC.
 - `event.date`, `startTime` and `endTime` are local values with no time zone.
+- A time slot is `{ startTime, startsNextDay, endTime, endsNextDay }`. It always sits inside the event hours, on the same 30-minute grid. The flags mark times after midnight.
 - A request reaches Supabase from `estimated` onwards. `draft` stays in the browser, because it has no contact details yet.
 - `submitRequest` runs on every status change. `id` + `revision` make it idempotent, so the CRM updates rather than duplicates.
 - The payload never holds card data or passwords.
@@ -63,18 +75,50 @@ With `on-request`, `totalLow`, `totalHigh`, `midpoint` and `depositAmount` are `
 | Field | Ids |
 |---|---|
 | `event.type` | `wedding`, `birthday`, `engagement`, `wedding-proposal`, `hen-stag-do`, `baby-shower`, `graduation`, `girls-boys-night`, `family-friends-reunion`, `other-bespoke` |
-| `event.partySize` | `size-10-20`, `size-20-40`, `size-40-60`, `size-60-80`, `size-up-to-100` |
-| `event.food` | `private-chef`, `lunch`, `dinner`, `afternoon-tea`, `canapes` |
-| `event.drinks` | `cocktails-masterclass`, `wine-tasting`, `private-bartender`, `private-sommelier`, `drinks-all`, `wine-only`, `cocktails-spirits-only`, `byo-drinks` |
+| `event.food.items` | `brunch`, `lunch`, `dinner`, `canapes`, `afternoon-tea`, `private-chef`, `own-food` |
+| `event.drinks.items` | `cocktails-masterclass`, `wine-tasting`, `private-bartender`, `private-sommelier`, `drinks-all`, `wine-only`, `cocktails-spirits-only`, `byo-drinks` |
 | `event.entertainment.items` | `dj`, `live-music`, `activities` |
 | `event.decorations.items` | `flowers`, `balloons`, `personalised-items`, `other-bespoke` |
-| `event.budget` | `under-1000`, `1000-2500`, `2500-5000`, `5000-10000`, `over-10000` |
+
+## Follow-up answers
+
+Each chosen item that needs one has exactly one entry, keyed by the item id. Entries for items not chosen are never stored.
+
+| Field | Key | Value |
+|---|---|---|
+| `event.food.menus` | `brunch`, `lunch`, `canapes`, `afternoon-tea`, `private-chef` | A menu id, below |
+| `event.food.ownFoodNote` | | Free text when `own-food` is chosen, else `null`. May be empty |
+| `event.drinks.packages` | `cocktails-spirits-only`, `drinks-all`, `wine-only` | A package id, below |
+| `event.drinks.times` | `private-bartender`, `private-sommelier` | A time slot |
+| `event.drinks.ownDrinksNote` | | Free text when `byo-drinks` is chosen, else `null`. May be empty |
+| `event.entertainment.times` | `dj`, `live-music` | A time slot |
+| `event.entertainment.activitiesPreference` | | Free text when `activities` is chosen, else `null` |
+
+Menu ids:
+
+| Food | Ids |
+|---|---|
+| `brunch` | `sunday-table`, `maple-and-rye`, `golden-hour-kitchen` |
+| `lunch` | `osteria-bellavista`, `copper-fork`, `saffron-and-smoke` |
+| `canapes` | `petit-bouchee`, `little-plates-co`, `garden-party` |
+| `afternoon-tea` | `rosewater-room`, `lady-marmalades`, `gilded-teapot` |
+| `private-chef` | `alessandro-rinaldi`, `camille-dubois`, `naomi-hartley`, `kenji-mori`, `layla-haddad` |
+
+Drinks package ids:
+
+| Drink | Ids |
+|---|---|
+| `cocktails-spirits-only` | `four-cocktails-or-bottle`, `three-cocktails-or-half-bottle`, `two-cocktails-or-half-bottle`, `one-cocktail-or-half-bottle` |
+| `drinks-all` | `four-cocktails`, `three-cocktails`, `two-cocktails`, `one-cocktail` |
+| `wine-only` | `prosecco-champagne-6-glasses`, `wine-150ml`, `wine-175ml`, `wine-250ml` |
+
+Dishes, chef names and package wording are in `src/domain/catalog.ts`.
 
 ## Example
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "6f1c1f0e-2f43-4f52-9d0e-3f8a0a7f1b11",
   "revision": 5,
   "status": "deposit-pending",
@@ -101,32 +145,50 @@ With `on-request`, `totalLow`, `totalHigh`, `midpoint` and `depositAmount` are `
     "startTime": "18:30",
     "endTime": "01:00",
     "endsNextDay": true,
-    "partySize": "size-40-60",
-    "food": ["dinner"],
-    "drinks": ["wine-only"],
-    "entertainment": { "items": ["dj"], "activitiesPreference": null },
+    "guests": 50,
+    "food": { "items": ["dinner"], "menus": {}, "ownFoodNote": null },
+    "drinks": {
+      "items": ["wine-only", "private-bartender"],
+      "packages": { "wine-only": "wine-175ml" },
+      "times": {
+        "private-bartender": {
+          "startTime": "19:00",
+          "startsNextDay": false,
+          "endTime": "00:30",
+          "endsNextDay": true
+        }
+      },
+      "ownDrinksNote": null
+    },
+    "entertainment": {
+      "items": ["dj"],
+      "times": {
+        "dj": { "startTime": "18:30", "startsNextDay": false, "endTime": "01:00", "endsNextDay": true }
+      },
+      "activitiesPreference": null
+    },
     "decorations": { "items": ["flowers"], "note": null },
     "additionalInfo": "",
-    "budget": "2500-5000"
+    "budget": 500000
   },
   "estimate": {
     "kind": "priced",
-    "pricingVersion": "pricing-v1",
+    "pricingVersion": "pricing-v2",
     "currency": "GBP",
-    "guestsMin": 40,
-    "guestsMax": 60,
+    "guests": 50,
     "lines": [
       { "category": "food", "item": "dinner", "lowPerPerson": 5000, "highPerPerson": 8500 },
       { "category": "drinks", "item": "wine-only", "lowPerPerson": 1400, "highPerPerson": 2500 },
+      { "category": "drinks", "item": "private-bartender", "lowPerPerson": 1600, "highPerPerson": 2500 },
       { "category": "entertainment", "item": "dj", "lowPerPerson": 1100, "highPerPerson": 2000 },
-      { "category": "decorations", "item": "flowers", "lowPerPerson": 900, "highPerPerson": 2000 }
+      { "category": "decorations", "item": "flowers", "lowPerPerson": 1500, "highPerPerson": 1500 }
     ],
     "onRequestItems": [],
-    "totalLow": 336000,
-    "totalHigh": 900000,
-    "midpoint": 618000,
+    "totalLow": 530000,
+    "totalHigh": 850000,
+    "midpoint": 690000,
     "depositPercent": 20,
-    "depositAmount": 123600
+    "depositAmount": 138000
   },
   "estimateHistory": [],
   "decisions": {
@@ -139,7 +201,7 @@ With `on-request`, `totalLow`, `totalHigh`, `midpoint` and `depositAmount` are `
   "payment": {
     "provider": "stub",
     "paymentId": "stub_pay_123",
-    "amount": 123600,
+    "amount": 138000,
     "currency": "GBP",
     "status": "pending",
     "paidAt": null

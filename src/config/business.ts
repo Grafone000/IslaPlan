@@ -5,5 +5,5 @@ export const business = {
   consultationRatePerMinuteMinor: 10,
   depositPercent: 20,
   currency: 'GBP',
-  pricingVersion: 'pricing-v1',
+  pricingVersion: 'pricing-v2',
 } as const;

@@ -1,15 +1,17 @@
 import type {
-  BudgetId,
   DecorationId,
   DrinksId,
   EntertainmentId,
   EventTypeId,
   FoodId,
-  PartySizeId,
+  MenuFood,
+  PackagedDrink,
   PricedCategory,
+  TimedDrink,
+  TimedEntertainment,
 } from './catalog';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const requestStatuses = [
   'draft',
@@ -49,6 +51,35 @@ export interface Contact {
   phone: string;
 }
 
+// Times of a service inside the event, such as the DJ. The flags mark times after midnight.
+export interface TimeSlot {
+  startTime: string;
+  startsNextDay: boolean;
+  endTime: string;
+  endsNextDay: boolean;
+}
+
+export interface FoodChoice {
+  items: FoodId[];
+  // Menu id per chosen food that has menus.
+  menus: Partial<Record<MenuFood, string>>;
+  ownFoodNote: string | null;
+}
+
+export interface DrinksChoice {
+  items: DrinksId[];
+  // Package id per chosen drink that has packages.
+  packages: Partial<Record<PackagedDrink, string>>;
+  times: Partial<Record<TimedDrink, TimeSlot>>;
+  ownDrinksNote: string | null;
+}
+
+export interface EntertainmentChoice {
+  items: EntertainmentId[];
+  times: Partial<Record<TimedEntertainment, TimeSlot>>;
+  activitiesPreference: string | null;
+}
+
 export interface EventDetails {
   type: EventTypeId | null;
   typeNote: string | null;
@@ -56,13 +87,14 @@ export interface EventDetails {
   startTime: string | null;
   endTime: string | null;
   endsNextDay: boolean;
-  partySize: PartySizeId | null;
-  food: FoodId[];
-  drinks: DrinksId[];
-  entertainment: { items: EntertainmentId[]; activitiesPreference: string | null };
+  guests: number | null;
+  food: FoodChoice;
+  drinks: DrinksChoice;
+  entertainment: EntertainmentChoice;
   decorations: { items: DecorationId[]; note: string | null };
   additionalInfo: string;
-  budget: BudgetId | null;
+  // Pence. The slider's top value means "or more".
+  budget: number | null;
 }
 
 export interface EstimateLine {
@@ -82,8 +114,7 @@ export interface Estimate {
   kind: EstimateKind;
   pricingVersion: string;
   currency: string;
-  guestsMin: number;
-  guestsMax: number;
+  guests: number;
   lines: EstimateLine[];
   onRequestItems: EstimateItemRef[];
   totalLow: number | null;
@@ -216,10 +247,10 @@ export function createDraft(id: string, at: string): EventRequest {
       startTime: null,
       endTime: null,
       endsNextDay: false,
-      partySize: null,
-      food: [],
-      drinks: [],
-      entertainment: { items: [], activitiesPreference: null },
+      guests: null,
+      food: { items: [], menus: {}, ownFoodNote: null },
+      drinks: { items: [], packages: {}, times: {}, ownDrinksNote: null },
+      entertainment: { items: [], times: {}, activitiesPreference: null },
       decorations: { items: [], note: null },
       additionalInfo: '',
       budget: null,

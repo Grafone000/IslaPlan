@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { drinksOptions, foodOptions, wizardSteps } from './catalog';
+import { drinksOptions, foodOptions, wizardSteps, type DrinksId, type FoodId } from './catalog';
 import {
   DRAFT_VERSION,
   canVisit,
   createWizardState,
   endTimes,
+  firstIncompleteStep,
   isStepComplete,
   isValidEnd,
+  isWizardStep,
   nextStep,
+  normalizeEvent,
   parseDraft,
   previousStep,
   resumeStep,
@@ -21,24 +24,35 @@ import {
 const T0 = '2026-11-01T10:00:00.000Z';
 const empty = () => createWizardState('id', T0);
 
+const food = (items: FoodId[], menus = {}) => ({ items, menus, ownFoodNote: null });
+const drinks = (items: DrinksId[], packages = {}) => ({
+  items,
+  packages,
+  times: {},
+  ownDrinksNote: null,
+});
+
 const answered = (): WizardState =>
   [
     { type: 'SET_ANSWER', patch: { type: 'wedding' } },
     { type: 'SET_ANSWER', patch: { date: '2027-05-14', startTime: '18:30', endTime: '23:00' } },
-    { type: 'SET_ANSWER', patch: { partySize: 'size-40-60' } },
-    { type: 'SET_ANSWER', patch: { food: ['dinner'] } },
-    { type: 'SET_ANSWER', patch: { drinks: ['wine-only'] } },
-    { type: 'SET_ANSWER', patch: { budget: '2500-5000' } },
+    { type: 'SET_ANSWER', patch: { guests: 50 } },
+    { type: 'SET_ANSWER', patch: { food: food(['dinner']) } },
+    { type: 'SET_ANSWER', patch: { drinks: drinks(['wine-only'], { 'wine-only': 'wine-175ml' }) } },
+    { type: 'SET_ANSWER', patch: { budget: 500_000 } },
     { type: 'REACH', step: 'budget' },
   ].reduce(
     (state, action) => wizardReducer(state, action as Parameters<typeof wizardReducer>[1]),
     empty(),
   );
 
+const withAnswer = (state: WizardState, patch: Partial<WizardState['event']>) =>
+  wizardReducer(state, { type: 'SET_ANSWER', patch });
+
 describe('wizardReducer', () => {
   it('keeps earlier answers when a new one arrives', () => {
-    const state = wizardReducer(answered(), { type: 'SET_ANSWER', patch: { food: ['lunch'] } });
-    expect(state.event.food).toEqual(['lunch']);
+    const state = withAnswer(answered(), { food: food(['lunch']) });
+    expect(state.event.food.items).toEqual(['lunch']);
     expect(state.event.type).toBe('wedding');
   });
 
@@ -56,22 +70,80 @@ describe('wizardReducer', () => {
 });
 
 describe('step order', () => {
+  const event = empty().event;
+
   it('keeps all ten steps for guests and skips contact once logged in', () => {
-    expect(stepsFor(false)).toHaveLength(10);
-    expect(stepsFor(true)).toHaveLength(9);
-    expect(stepsFor(true)).not.toContain('contact');
+    expect(stepsFor(event, false)).toHaveLength(10);
+    expect(stepsFor(event, true)).toHaveLength(9);
+    expect(stepsFor(event, true)).not.toContain('contact');
   });
 
   it('walks forward and back', () => {
-    expect(nextStep('event-type', false)).toBe('date-time');
-    expect(previousStep('date-time', false)).toBe('event-type');
-    expect(previousStep('event-type', false)).toBeNull();
+    expect(nextStep('event-type', event, false)).toBe('date-time');
+    expect(previousStep('date-time', event, false)).toBe('event-type');
+    expect(previousStep('event-type', event, false)).toBeNull();
   });
 
   it('ends at contact for guests and at budget when logged in', () => {
-    expect(nextStep('budget', false)).toBe('contact');
-    expect(nextStep('contact', false)).toBeNull();
-    expect(nextStep('budget', true)).toBeNull();
+    expect(nextStep('budget', event, false)).toBe('contact');
+    expect(nextStep('contact', event, false)).toBeNull();
+    expect(nextStep('budget', event, true)).toBeNull();
+  });
+
+  it('adds a page per chosen menu food and drinks package, in catalogue order', () => {
+    const chosen = {
+      ...event,
+      food: food(['private-chef', 'brunch', 'dinner', 'own-food']),
+      drinks: drinks(['wine-only', 'cocktails-spirits-only', 'private-bartender']),
+    };
+    expect(stepsFor(chosen, false).slice(3, 9)).toEqual([
+      'food',
+      'menu-brunch',
+      'menu-private-chef',
+      'drinks',
+      'package-cocktails-spirits-only',
+      'package-wine-only',
+    ]);
+    expect(nextStep('food', chosen, false)).toBe('menu-brunch');
+    expect(previousStep('drinks', chosen, false)).toBe('menu-private-chef');
+  });
+
+  it('knows every menu and package page', () => {
+    expect(isWizardStep('menu-lunch')).toBe(true);
+    expect(isWizardStep('package-drinks-all')).toBe(true);
+    expect(isWizardStep('menu-dinner')).toBe(false);
+  });
+});
+
+describe('normalizeEvent', () => {
+  it('gives each timed service the whole event until the client narrows it', () => {
+    const state = withAnswer(answered(), {
+      drinks: drinks(['wine-only', 'private-bartender'], { 'wine-only': 'wine-175ml' }),
+    });
+    expect(state.event.drinks.times['private-bartender']).toEqual({
+      startTime: '18:30',
+      startsNextDay: false,
+      endTime: '23:00',
+      endsNextDay: false,
+    });
+  });
+
+  it('drops the follow-up answers of items that are no longer chosen', () => {
+    const chosen = withAnswer(answered(), {
+      food: { items: ['lunch', 'own-food'], menus: { lunch: 'copper-fork' }, ownFoodNote: 'Cake' },
+    });
+    const state = withAnswer(chosen, { food: { ...chosen.event.food, items: ['dinner'] } });
+    expect(state.event.food).toEqual(food(['dinner']));
+  });
+
+  it('refits a service slot that falls outside new event hours', () => {
+    const late = { startTime: '22:00', startsNextDay: false, endTime: '23:00', endsNextDay: false };
+    const event = normalizeEvent({
+      ...answered().event,
+      entertainment: { items: ['dj'], times: { dj: late }, activitiesPreference: null },
+    });
+    const earlier = normalizeEvent({ ...event, startTime: '12:00', endTime: '16:00' });
+    expect(earlier.entertainment.times.dj).toMatchObject({ startTime: '12:00', endTime: '16:00' });
   });
 });
 
@@ -100,13 +172,29 @@ describe('resumeStep', () => {
   });
 
   it('goes back to an unanswered required step', () => {
-    const state = wizardReducer(answered(), { type: 'SET_ANSWER', patch: { food: [] } });
+    const state = withAnswer(answered(), { food: food([]) });
     expect(resumeStep(state, false)).toBe('food');
+  });
+
+  it('goes back to a menu that has not been chosen', () => {
+    const state = withAnswer(answered(), { food: food(['brunch']) });
+    expect(resumeStep(state, false)).toBe('menu-brunch');
   });
 
   it('never lands on contact when it is skipped', () => {
     const state = { ...answered(), furthest: 'contact' as const };
     expect(resumeStep(state, true)).toBe('budget');
+  });
+});
+
+describe('firstIncompleteStep', () => {
+  it('finds a new menu question after an edit', () => {
+    const state = withAnswer(answered(), { food: food(['dinner', 'canapes']) });
+    expect(firstIncompleteStep(state, true)).toBe('menu-canapes');
+  });
+
+  it('is null when every answer is in', () => {
+    expect(firstIncompleteStep(answered(), true)).toBeNull();
   });
 });
 
@@ -118,6 +206,10 @@ describe('canVisit', () => {
 
   it('allows going back to earlier steps', () => {
     expect(canVisit('food', answered(), false)).toBe(true);
+  });
+
+  it('blocks the page of a food that is not chosen', () => {
+    expect(canVisit('menu-lunch', answered(), false)).toBe(false);
   });
 });
 
@@ -142,6 +234,16 @@ describe('toggleOption', () => {
   it('keeps drinks supply options exclusive but allows extras', () => {
     const result = toggleOption(drinksOptions, ['wine-only', 'wine-tasting'], 'byo-drinks');
     expect(result.selected).toEqual(['wine-tasting', 'byo-drinks']);
+  });
+
+  it('lets Wine only and Cocktails/spirits only go together, but not with Drinks all', () => {
+    expect(toggleOption(drinksOptions, ['wine-only'], 'cocktails-spirits-only').selected).toEqual([
+      'wine-only',
+      'cocktails-spirits-only',
+    ]);
+    expect(
+      toggleOption(drinksOptions, ['wine-only', 'cocktails-spirits-only'], 'drinks-all').selected,
+    ).toEqual(['drinks-all']);
   });
 });
 
