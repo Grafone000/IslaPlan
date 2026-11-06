@@ -1,47 +1,15 @@
 import Image from 'next/image';
-import { AuthNav } from '@/components/auth/AuthNav';
-import { ButtonLink } from '@/components/ui/ButtonLink';
 import { home } from '@/content/home';
-
-const navLinkClass = 'inline-flex min-h-11 items-center no-underline';
+import { HeroName } from './HeroName';
 
 export function Hero() {
-  const { hero, nav, brand, bookAction } = home;
+  const { hero, brand } = home;
   return (
-    <section id="top" className="relative flex min-h-[780px] flex-col overflow-hidden text-white">
+    <section id="top" className="relative flex min-h-svh items-end overflow-hidden text-white">
       <Image src={hero.image.src} alt={hero.image.alt} fill preload sizes="100vw" className="object-cover" />
-      <div aria-hidden="true" className="absolute inset-0 bg-[rgba(12,10,14,0.55)]" />
-
-      <header className="relative mx-auto flex w-full max-w-[1280px] flex-wrap items-center justify-between gap-x-4 gap-y-2 px-6 py-6 md:px-8">
-        <a href="#top" className="font-serif text-[28px] no-underline">
-          {brand}
-        </a>
-        <nav
-          aria-label={nav.label}
-          className="flex flex-wrap items-center gap-x-7 text-[15px] font-medium"
-        >
-          {nav.links.map((link) => (
-            <a key={link.label} href={link.href} className={navLinkClass}>
-              {link.label}
-            </a>
-          ))}
-          <AuthNav />
-        </nav>
-      </header>
-
-      <div className="relative mx-auto flex w-full max-w-[1280px] flex-auto flex-col justify-end gap-7 px-6 pt-16 pb-24 md:px-8">
-        <h1 className="m-0 max-w-[1100px] font-serif text-[clamp(52px,7vw,104px)] leading-none font-normal text-balance">
-          {hero.title} <em className="block">{hero.titleEmphasis}</em>
-        </h1>
-        <p className="m-0 max-w-[560px] text-xl">{hero.intro}</p>
-        <div className="flex flex-wrap gap-3.5">
-          <ButtonLink href={bookAction.href} variant="accent">
-            {bookAction.label}
-          </ButtonLink>
-          <ButtonLink href={hero.secondaryAction.href} variant="outline">
-            {hero.secondaryAction.label}
-          </ButtonLink>
-        </div>
+      <div aria-hidden="true" className="absolute inset-0 bg-[rgba(20,28,22,0.25)]" />
+      <div className="relative flex w-full justify-end px-4 pb-4 md:px-8 md:pb-6">
+        <HeroName name={brand} />
       </div>
     </section>
   );

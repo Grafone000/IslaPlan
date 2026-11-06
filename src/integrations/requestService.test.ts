@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { business } from '@/config/business';
-import { priceTableV2 } from '@/domain/pricing/table.v2';
+import { priceTableV3 } from '@/domain/pricing/table.v3';
 import type { EventRequest } from '@/domain/request';
 import type { CrmGateway, RequestRepository } from './contracts';
 import { createRequest, runRequestCommand, type RequestServiceDeps } from './requestService';
@@ -19,11 +19,13 @@ const event = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  guests: 50,
+  partySize: 'size-40-60',
   food: { items: ['dinner'], menus: {}, ownFoodNote: null },
   drinks: {
     items: ['wine-only'],
-    packages: { 'wine-only': 'wine-175ml' },
+    packages: {},
+    drinksAllBottle: null,
+    wineBottles: [{ product: 'house-red', glass: 'glass-150', quantity: 10 }],
     times: {},
     ownDrinksNote: null,
   },
@@ -75,7 +77,7 @@ beforeEach(() => {
   deps = {
     requests: memoryRepository(),
     crm,
-    pricing: { table: priceTableV2, config: business },
+    pricing: { table: priceTableV3, config: business },
     now: () => '2026-11-01T10:00:00.000Z',
   };
 });
@@ -104,7 +106,7 @@ describe('createRequest', () => {
     const request = stored.get(ID);
     expect(request?.status).toBe('estimated');
     expect(request?.accountId).toBeNull();
-    expect(request?.estimate?.depositAmount).toBe(117_500);
+    expect(request?.estimate?.depositAmount).toBe(105_600);
   });
 
   it('takes the account from the session', async () => {
@@ -116,6 +118,8 @@ describe('createRequest', () => {
     ['a bad id', { id: 'nope', contact, event }],
     ['a bad contact', { id: ID, contact: { ...contact, email: 'x' }, event }],
     ['an unfinished event', { id: ID, contact, event: { ...event, food: [] } }],
+    // Today is 1 November 2026, so the earliest date is 1 December.
+    ['a date less than a month away', { id: ID, contact, event: { ...event, date: '2026-11-30' } }],
     ['an empty body', null],
   ])('rejects %s', async (_name, body) => {
     expect((await createRequest(body, null, deps)).status).toBe(400);
@@ -142,6 +146,14 @@ describe('runRequestCommand', () => {
     await create();
     expect((await runRequestCommand(ID, { type: 'proceed' }, null, deps)).status).toBe(409);
     expect(stored.get(ID)?.status).toBe('estimated');
+  });
+
+  it('refuses to move the event closer than a month away', async () => {
+    await create();
+    const sooner = { type: 'change-event', event: { ...event, date: '2026-11-20' } };
+    expect((await runRequestCommand(ID, sooner, null, deps)).status).toBe(400);
+    const later = { type: 'change-event', event: { ...event, date: '2026-12-01' } };
+    expect((await runRequestCommand(ID, later, null, deps)).status).toBe(200);
   });
 
   it('rejects an unknown command', async () => {

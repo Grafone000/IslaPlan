@@ -14,15 +14,15 @@ import { itemLabel } from '@/domain/catalog';
 import { estimateInputOf } from '@/domain/commands';
 import { analyseCostDrivers, type Suggestion } from '@/domain/pricing/drivers';
 import { formatMoney } from '@/domain/pricing/format';
-import { priceTableV2 } from '@/domain/pricing/table.v2';
+import { priceTableV3 } from '@/domain/pricing/table.v3';
 import { estimateStage } from '@/domain/request';
 
 const content = estimateContent.revise;
 
 function describe(suggestion: Suggestion): string {
   switch (suggestion.kind) {
-    case 'fewer-guests':
-      return content.fewerGuests(suggestion.to);
+    case 'smaller-party':
+      return content.smallerParty(suggestion.to);
     case 'swap-item':
       return content.swap(
         itemLabel(suggestion.category, suggestion.from),
@@ -34,7 +34,7 @@ function describe(suggestion: Suggestion): string {
 }
 
 const stepOf = (suggestion: Suggestion) =>
-  suggestion.kind === 'fewer-guests' ? 'party-size' : suggestion.category;
+  suggestion.kind === 'smaller-party' ? 'party-size' : suggestion.category;
 
 const editLink = (step: string) => `/plan/${step}?return=estimate`;
 
@@ -67,7 +67,7 @@ export default function RevisePage() {
   const { midpoint, drivers, suggestions, budgetGap } = analyseCostDrivers(
     estimateInputOf(request.event),
     request.event.budget,
-    priceTableV2,
+    priceTableV3,
     business,
   );
   const budgetLabel = budgetGap ? formatMoney(budgetGap.budget) : '';

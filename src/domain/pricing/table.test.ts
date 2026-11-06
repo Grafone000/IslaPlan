@@ -8,25 +8,25 @@ import {
   foodOptions,
 } from '../catalog';
 import { lookupPrice } from './engine';
-import { priceTableV2 as table, type PriceRow } from './table.v2';
+import { priceTableV3 as table, type PriceRow } from './table.v3';
 
 const rows: PriceRow[] = Object.values(table.rows).flatMap((category) => Object.values(category));
 const cells = rows.flat();
 
-describe('price table v2', () => {
+describe('price table v3', () => {
   it('has the version the app is configured for', () => {
     expect(table.version).toBe(business.pricingVersion);
   });
 
-  it('has the 20 rows of the sheet plus Brunch and own food, and 10 columns', () => {
-    expect(rows).toHaveLength(22);
+  it('has the sheet rows without the masterclass and tasting, plus Brunch and own food', () => {
+    expect(rows).toHaveLength(20);
     expect(rows.every((row) => row.length === 10)).toBe(true);
     expect(table.columns).toEqual(eventTypes.map((type) => type.id));
   });
 
-  it('has 192 numeric cells and 28 on-request cells', () => {
-    expect(cells.filter((cell) => cell !== null)).toHaveLength(192);
-    expect(cells.filter((cell) => cell === null)).toHaveLength(28);
+  it('has 175 numeric cells and 25 on-request cells', () => {
+    expect(cells.filter((cell) => cell !== null)).toHaveLength(175);
+    expect(cells.filter((cell) => cell === null)).toHaveLength(25);
   });
 
   it('has low not above high in every numeric cell', () => {
@@ -63,12 +63,20 @@ describe('price table v2', () => {
     const index = table.columns.indexOf('other-bespoke');
     const fixed = [
       table.rows.food['own-food'],
+      table.rows.drinks['wine-only'],
       table.rows.decorations.flowers,
       table.rows.decorations.balloons,
     ];
     expect(rows.filter((row) => !fixed.includes(row)).every((row) => row[index] === null)).toBe(
       true,
     );
+  });
+
+  it('prices Wine only by the bottle and Drinks all cocktails like Cocktails/spirits only', () => {
+    expect(table.rows.drinks['wine-only'].every((cell) => cell?.[0] === 0 && cell[1] === 0)).toBe(
+      true,
+    );
+    expect(table.rows.drinks['drinks-all']).toEqual(table.rows.drinks['cocktails-spirits-only']);
   });
 
   it('marks the whole Other/Bespoke decorations row as on request', () => {
@@ -80,8 +88,8 @@ describe('price table v2', () => {
     ['wedding-proposal', 'food', 'private-chef', [105, 180]],
     ['family-friends-reunion', 'food', 'private-chef', [70, 120]],
     ['girls-boys-night', 'food', 'canapes', [12, 20]],
-    ['wedding', 'drinks', 'cocktails-masterclass', [40, 60]],
-    ['baby-shower', 'drinks', 'cocktails-masterclass', [9, 14]],
+    ['wedding', 'drinks', 'cocktails-spirits-only', [20, 35]],
+    ['baby-shower', 'drinks', 'private-sommelier', [5, 8]],
     ['baby-shower', 'drinks', 'byo-drinks', [1, 2]],
     ['family-friends-reunion', 'drinks', 'byo-drinks', [2, 4]],
     ['wedding-proposal', 'entertainment', 'dj', [5, 9]],

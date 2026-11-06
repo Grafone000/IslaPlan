@@ -1,21 +1,29 @@
-import type {
-  DecorationId,
-  DrinksId,
-  EntertainmentId,
-  EventTypeId,
-  FoodId,
-  PricedCategory,
+import {
+  bottleOf,
+  bottlesPerGuest,
+  partySizes,
+  type DecorationId,
+  type DrinksId,
+  type EntertainmentId,
+  type EventTypeId,
+  type FoodId,
+  type PartySizeId,
+  type PricedCategory,
 } from '../catalog';
-import type { Estimate, EstimateItemRef, EstimateLine } from '../request';
-import type { PriceRange, PriceRow, PriceTable } from './table.v2';
+import type { BottleLine, Estimate, EstimateItemRef, EstimateLine } from '../request';
+import type { PriceRange, PriceRow, PriceTable } from './table.v3';
 
 export interface EstimateInput {
   eventType: EventTypeId;
-  guests: number;
+  partySize: PartySizeId;
   food: readonly FoodId[];
   drinks: readonly DrinksId[];
   entertainment: readonly EntertainmentId[];
   decorations: readonly DecorationId[];
+  // Bottles the client picked for Wine only.
+  wineBottles: readonly { product: string; quantity: number }[];
+  // The Drinks all package and its bottle, if chosen.
+  drinksAll: { package: string | undefined; product: string | null } | null;
 }
 
 export interface PricingConfig {
@@ -48,12 +56,51 @@ export function lookupPrice(
 
 const isFree = (price: PriceRange) => price[0] === 0 && price[1] === 0;
 
+// Bottles are priced by the bottle, not per person, so they are not in the per-person lines.
+function bottleLinesOf(input: EstimateInput, guestsMin: number, guestsMax: number): BottleLine[] {
+  const lines: BottleLine[] = [];
+  if (input.drinks.includes('wine-only')) {
+    for (const { product, quantity } of input.wineBottles) {
+      const bottle = bottleOf(product);
+      if (bottle && quantity > 0) {
+        const amount = bottle.priceMinor * quantity;
+        lines.push({
+          item: 'wine-only',
+          product,
+          pricePerBottle: bottle.priceMinor,
+          quantityLow: quantity,
+          quantityHigh: quantity,
+          amountLow: amount,
+          amountHigh: amount,
+        });
+      }
+    }
+  }
+  const drinksAll = input.drinks.includes('drinks-all') ? input.drinksAll : null;
+  const bottle = bottleOf(drinksAll?.product ?? undefined);
+  const perGuest = bottlesPerGuest[drinksAll?.package ?? ''];
+  if (bottle && perGuest) {
+    const quantityLow = Math.ceil(guestsMin * perGuest);
+    const quantityHigh = Math.ceil(guestsMax * perGuest);
+    lines.push({
+      item: 'drinks-all',
+      product: bottle.id,
+      pricePerBottle: bottle.priceMinor,
+      quantityLow,
+      quantityHigh,
+      amountLow: bottle.priceMinor * quantityLow,
+      amountHigh: bottle.priceMinor * quantityHigh,
+    });
+  }
+  return lines;
+}
+
 export function calculateEstimate(
   input: EstimateInput,
   table: PriceTable,
   config: PricingConfig,
 ): Estimate {
-  const { guests } = input;
+  const { guestsMin, guestsMax } = partySizeById(input.partySize);
   const lines: EstimateLine[] = [];
   const onRequestItems: EstimateItemRef[] = [];
 
@@ -73,17 +120,20 @@ export function calculateEstimate(
       }
     }
   }
+  const bottleLines = bottleLinesOf(input, guestsMin, guestsMax);
 
   const base = {
     pricingVersion: table.version,
     currency: config.currency,
-    guests,
+    guestsMin,
+    guestsMax,
     lines,
+    bottleLines,
     onRequestItems,
     depositPercent: config.depositPercent,
   };
 
-  if (lines.length === 0) {
+  if (lines.length === 0 && bottleLines.length === 0) {
     return {
       ...base,
       kind: 'on-request',
@@ -94,9 +144,13 @@ export function calculateEstimate(
     };
   }
 
-  const totalLow = sum(lines.map((line) => line.lowPerPerson)) * guests;
-  const totalHigh = sum(lines.map((line) => line.highPerPerson)) * guests;
-  const midpoint = (totalLow + totalHigh) / 2;
+  const totalLow =
+    sum(lines.map((line) => line.lowPerPerson)) * guestsMin +
+    sum(bottleLines.map((line) => line.amountLow));
+  const totalHigh =
+    sum(lines.map((line) => line.highPerPerson)) * guestsMax +
+    sum(bottleLines.map((line) => line.amountHigh));
+  const midpoint = Math.round((totalLow + totalHigh) / 2);
 
   return {
     ...base,
@@ -106,6 +160,14 @@ export function calculateEstimate(
     midpoint,
     depositAmount: Math.round((midpoint * config.depositPercent) / 100),
   };
+}
+
+function partySizeById(id: PartySizeId) {
+  const size = partySizes.find((candidate) => candidate.id === id);
+  if (!size) {
+    throw new Error(`Unknown party size: ${id}`);
+  }
+  return size;
 }
 
 function sum(values: readonly number[]): number {

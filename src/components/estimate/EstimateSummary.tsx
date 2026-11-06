@@ -40,19 +40,26 @@ function ChoiceItem({
 export function EstimateSummary({ estimate, event }: { estimate: Estimate; event: EventDetails }) {
   const hasOwnDrinks = estimate.lines.some((line) => line.item === 'byo-drinks');
   const hasOwnFood = event.food.items.includes('own-food');
+  // Wine only is priced by the bottle alone, so it has no per-person line of its own.
+  const chosen = [
+    ...estimate.lines.map(({ category, item }) => ({ category, item })),
+    ...[...new Set(estimate.bottleLines.map((line) => line.item))]
+      .filter((item) => !estimate.lines.some((line) => line.item === item))
+      .map((item) => ({ category: 'drinks' as const, item })),
+  ];
   return (
     <section className="rounded-button bg-surface p-6">
       <EstimateAmount estimate={estimate} />
       <p className="mt-2 mb-0 text-muted">
-        {estimate.kind === 'on-request' ? content.onRequestBody : content.guests(estimate.guests)}
+        {estimate.kind === 'on-request' ? content.onRequestBody : content.guests(event.partySize ?? '')}
       </p>
       <p className="mt-3 mb-0 text-[15px] text-muted">{content.indicative}</p>
 
-      {estimate.lines.length > 0 && (
+      {chosen.length > 0 && (
         <>
           <h2 className="mt-5 mb-2 text-base font-semibold">{content.chosen}</h2>
           <ul className="m-0 list-disc pl-5">
-            {estimate.lines.map((line) => (
+            {chosen.map((line) => (
               <ChoiceItem
                 key={`${line.category}-${line.item}`}
                 category={line.category}

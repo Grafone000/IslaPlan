@@ -26,11 +26,13 @@ const event = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  guests: 50,
+  partySize: 'size-40-60',
   food: { items: ['dinner'], menus: {}, ownFoodNote: null },
   drinks: {
     items: ['wine-only'],
-    packages: { 'wine-only': 'wine-175ml' },
+    packages: {},
+    drinksAllBottle: null,
+    wineBottles: [{ product: 'house-red', glass: 'glass-150', quantity: 10 }],
     times: {},
     ownDrinksNote: null,
   },
@@ -71,10 +73,13 @@ test.describe('after the estimate', () => {
       ([key, draft]) => localStorage.setItem(key as string, JSON.stringify(draft)),
       [
         DRAFT_KEY,
-        { draftVersion: 2, id, event: finalEvent, contact, furthest: 'contact', request },
+        { draftVersion: 3, id, event: finalEvent, contact, furthest: 'contact', request },
       ],
     );
     await page.goto('/plan/estimate');
+    // The first look opens on the magazine cover: turn to the numbers.
+    await page.getByRole('button', { name: 'Turn the page' }).click();
+    await page.getByRole('button', { name: 'Turn the page' }).click();
     return id;
   }
 
@@ -97,7 +102,7 @@ test.describe('after the estimate', () => {
 
   test('shows the indicative estimate and what was chosen', async ({ page }) => {
     await openEstimate(page);
-    await expect(page.getByText('£4,500 - £7,250')).toBeVisible();
+    await expect(page.getByText('£3,200 - £7,360')).toBeVisible();
     await expect(page.getByText(/indicative estimate/)).toBeVisible();
     await expect(page.getByRole('listitem').filter({ hasText: 'Dinner' })).toBeVisible();
   });
@@ -107,10 +112,11 @@ test.describe('after the estimate', () => {
     await answer(page, 'Are you happy with this estimate?', 'No');
 
     await expect(page).toHaveURL(/\/plan\/revise/);
-    await expect(page.getByText('£3,375 (57%)')).toBeVisible();
+    await expect(page.getByText('£3,550 (67%)')).toBeVisible();
+    await expect(page.getByText('Plan for 20 to 40 guests')).toBeVisible();
     await expect(page.getByText('Switch Dinner to Brunch')).toBeVisible();
-    await expect(page.getByText('Saves about £1,375')).toBeVisible();
-    await expect(page.getByText(/about £875 above your budget of £5,000/)).toBeVisible();
+    await expect(page.getByText('Saves about £1,450')).toBeVisible();
+    await expect(page.getByText(/about £280 above your budget of £5,000/)).toBeVisible();
     await savedRow(id, 'revising');
 
     await page.getByRole('link', { name: 'Change this: Switch Dinner to Brunch' }).click();
@@ -124,10 +130,11 @@ test.describe('after the estimate', () => {
     await page.getByRole('button', { name: /The Sunday Table/ }).click();
 
     await expect(page).toHaveURL(/\/plan\/estimate/);
-    await expect(page.getByText('£3,500 - £5,500')).toBeVisible();
+    // Back from a change, the magazine opens straight on the numbers.
+    await expect(page.getByText('£2,400 - £5,260')).toBeVisible();
     await expect(page.getByText(': The Sunday Table')).toBeVisible();
     const payload = await savedRow(id, 'estimated');
-    expect(payload.estimate.midpoint).toBe(450_000);
+    expect(payload.estimate.midpoint).toBe(383_000);
     expect(payload.event.food.menus).toEqual({ brunch: 'sunday-table' });
     expect(payload.estimateHistory).toHaveLength(1);
 
@@ -176,7 +183,7 @@ test.describe('after the estimate', () => {
 
     await expect(page.getByText('ilaria@grafone.com')).toBeVisible();
     await expect(page.getByText('3519844008')).toBeVisible();
-    await expect(page.getByText('Phone calls cost £0.10/min.')).toBeVisible();
+    await expect(page.getByText(/Phone calls cost/)).toHaveCount(0);
     const call = page.getByRole('link', { name: 'Call us' });
     await expect(call).toHaveAttribute('href', 'tel:+393519844008');
 
@@ -193,27 +200,24 @@ test.describe('after the estimate', () => {
     await expect(page.getByText('Would you like to proceed?')).toBeVisible();
   });
 
-  test('proceeding asks for the deposit, and Not now closes politely', async ({ page }) => {
+  test('proceeding ends with a thank you, and no deposit is asked', async ({ page }) => {
     const id = await openEstimate(page);
     await answer(page, 'Are you happy with this estimate?', 'Yes');
     await answer(page, 'Would you like a phone consultation?', 'No');
     await answer(page, 'Would you like to proceed?', 'Yes');
 
-    await expect(page).toHaveURL(/\/plan\/deposit/);
-    await expect(page.getByText('£1,175', { exact: true })).toBeVisible();
-    await expect(page.getByText('To go ahead we ask for a 20% deposit.')).toBeVisible();
-    await savedRow(id, 'deposit-pending');
-
-    await page.getByRole('button', { name: 'Not now' }).click();
     await expect(page).toHaveURL(/\/plan\/outcome/);
-    await expect(page.getByText(/That's absolutely fine/)).toBeVisible();
-    const payload = await savedRow(id, 'declined');
-    expect(payload.decisions.declinedAt).toBe('deposit');
+    await expect(page.getByText(/We'll be in touch soon/)).toBeVisible();
+    await expect(page.getByText(/deposit/i)).toHaveCount(0);
+    const payload = await savedRow(id, 'accepted');
+    expect(payload.decisions.proceed).toBe(true);
+    expect(payload.payment).toBeNull();
   });
 
   test('an on-request event has no amount and no deposit', async ({ page }) => {
     const id = await openEstimate(page, {
       type: 'other-bespoke',
+      drinks: { ...event.drinks, items: ['byo-drinks'], wineBottles: [] },
       decorations: { items: [], note: null },
     });
     await expect(page.getByText('Priced on request')).toBeVisible();
@@ -238,7 +242,7 @@ test.describe('after the estimate', () => {
     await expect(page).toHaveURL(/\/plan\/outcome/);
 
     await page.getByRole('link', { name: 'Back to the home page' }).click();
-    await page.getByRole('link', { name: 'Book your event' }).first().click();
+    await page.getByRole('link', { name: 'Let’s start planning' }).click();
     await expect(page).toHaveURL(/\/plan\/event-type/);
     await expect(page.getByRole('button', { name: 'Wedding', exact: true })).toHaveAttribute(
       'aria-pressed',

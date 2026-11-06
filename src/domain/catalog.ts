@@ -20,8 +20,15 @@ export const eventTypes = [
   { id: 'other-bespoke', label: 'Other/Bespoke', needsNote: true },
 ] as const satisfies readonly CatalogOption[];
 
-// Party size and budget are sliders. The budget is in pence; its top value means "or more".
-export const guestLimits = { min: 10, max: 100, step: 1, initial: 40 } as const;
+export const partySizes = [
+  { id: 'size-10-20', label: 'From 10 to 20', guestsMin: 10, guestsMax: 20 },
+  { id: 'size-20-40', label: 'From 20 to 40', guestsMin: 20, guestsMax: 40 },
+  { id: 'size-40-60', label: 'From 40 to 60', guestsMin: 40, guestsMax: 60 },
+  { id: 'size-60-80', label: 'From 60 to 80', guestsMin: 60, guestsMax: 80 },
+  { id: 'size-up-to-100', label: 'Up to 100', guestsMin: 80, guestsMax: 100 },
+] as const satisfies readonly (CatalogOption & { guestsMin: number; guestsMax: number })[];
+
+// The budget is a slider, in pence; its top value means "or more".
 export const budgetLimits = {
   minMinor: 50_000,
   maxMinor: 2_000_000,
@@ -40,8 +47,6 @@ export const foodOptions = [
 ] as const satisfies readonly CatalogOption[];
 
 export const drinksOptions = [
-  { id: 'cocktails-masterclass', label: 'Cocktails masterclass' },
-  { id: 'wine-tasting', label: 'Wine tasting' },
   { id: 'private-bartender', label: 'Private bartender' },
   { id: 'private-sommelier', label: 'Private sommelier' },
   {
@@ -80,6 +85,7 @@ export const decorationOptions = [
 ] as const satisfies readonly CatalogOption[];
 
 export type EventTypeId = (typeof eventTypes)[number]['id'];
+export type PartySizeId = (typeof partySizes)[number]['id'];
 export type FoodId = (typeof foodOptions)[number]['id'];
 export type DrinksId = (typeof drinksOptions)[number]['id'];
 export type EntertainmentId = (typeof entertainmentOptions)[number]['id'];
@@ -298,46 +304,182 @@ export const foodMenus: Record<MenuFood, readonly Menu[]> = {
   ],
 };
 
-export const drinkPackages: Record<PackagedDrink, readonly CatalogOption[]> = {
+// Cocktails per guest for Cocktails/spirits only and Drinks all. Drinks all also brings a
+// bottle of wine or champagne per guest with 4 cocktails, half a bottle otherwise.
+export type CocktailDrink = 'cocktails-spirits-only' | 'drinks-all';
+
+export const drinkPackages: Record<CocktailDrink, readonly CatalogOption[]> = {
   'cocktails-spirits-only': [
-    {
-      id: 'four-cocktails-or-bottle',
-      label: '4 cocktails per person, or 1 bottle of wine or prosecco/champagne each',
-    },
-    {
-      id: 'three-cocktails-or-half-bottle',
-      label: '3 cocktails per person, or ½ bottle of wine each',
-    },
-    {
-      id: 'two-cocktails-or-half-bottle',
-      label: '2 cocktails per person, or ½ bottle of wine each',
-    },
-    {
-      id: 'one-cocktail-or-half-bottle',
-      label: '1 cocktail per person, or ½ bottle of wine each',
-    },
-  ],
-  'drinks-all': [
     { id: 'four-cocktails', label: '4 cocktails per person' },
     { id: 'three-cocktails', label: '3 cocktails per person' },
     { id: 'two-cocktails', label: '2 cocktails per person' },
     { id: 'one-cocktail', label: '1 cocktail per person' },
   ],
-  'wine-only': [
+  'drinks-all': [
     {
-      id: 'prosecco-champagne-6-glasses',
-      label: 'Prosecco/Champagne, 6 glasses',
+      id: 'four-cocktails-bottle',
+      label: '4 cocktails per person + 1 bottle of wine or champagne per person',
     },
-    { id: 'wine-150ml', label: 'Wine, 150 ml glass' },
-    { id: 'wine-175ml', label: 'Wine, 175 ml glass' },
-    { id: 'wine-250ml', label: 'Wine, 250 ml glass' },
+    {
+      id: 'three-cocktails-half-bottle',
+      label: '3 cocktails per person + ½ bottle of wine or champagne per person',
+    },
+    {
+      id: 'two-cocktails-half-bottle',
+      label: '2 cocktails per person + ½ bottle of wine or champagne per person',
+    },
+    {
+      id: 'one-cocktail-half-bottle',
+      label: '1 cocktail per person + ½ bottle of wine or champagne per person',
+    },
   ],
 };
+
+// Bottles per guest that each Drinks all package brings.
+export const bottlesPerGuest: Record<string, number> = {
+  'four-cocktails-bottle': 1,
+  'three-cocktails-half-bottle': 0.5,
+  'two-cocktails-half-bottle': 0.5,
+  'one-cocktail-half-bottle': 0.5,
+};
+
+export type BottleKind = 'sparkling' | 'wine';
+
+export const bottleKinds: readonly { id: BottleKind; label: string }[] = [
+  { id: 'sparkling', label: 'Champagne & sparkling wine' },
+  { id: 'wine', label: 'Wine' },
+];
+
+export interface BottleProduct {
+  id: string;
+  kind: BottleKind;
+  name: string;
+  description: string;
+  // Pence per 75 cl bottle.
+  priceMinor: number;
+  image: string;
+}
+
+// Placeholder list until the real wine list arrives: names and prices are made up.
+const SPARKLING_IMAGE = '/images/drinks/sparkling.png';
+const WINE_IMAGE = '/images/drinks/wine.png';
+
+export const bottleProducts: readonly BottleProduct[] = [
+  {
+    id: 'prosecco-extra-dry',
+    kind: 'sparkling',
+    name: 'Prosecco Extra Dry',
+    description: 'Fresh and fruity, from the Veneto hills',
+    priceMinor: 2_400,
+    image: SPARKLING_IMAGE,
+  },
+  {
+    id: 'rose-spumante',
+    kind: 'sparkling',
+    name: 'Rosé Spumante',
+    description: 'Pale pink, with notes of wild strawberry',
+    priceMinor: 2_800,
+    image: SPARKLING_IMAGE,
+  },
+  {
+    id: 'cremant-brut',
+    kind: 'sparkling',
+    name: 'Crémant Brut',
+    description: 'Fine bubbles and a crisp apple finish',
+    priceMinor: 3_200,
+    image: SPARKLING_IMAGE,
+  },
+  {
+    id: 'franciacorta-saten',
+    kind: 'sparkling',
+    name: 'Franciacorta Satèn',
+    description: 'Creamy and elegant, made the traditional way',
+    priceMinor: 4_500,
+    image: SPARKLING_IMAGE,
+  },
+  {
+    id: 'champagne-brut-reserve',
+    kind: 'sparkling',
+    name: 'Champagne Brut Réserve',
+    description: 'Toasted brioche, citrus and a long finish',
+    priceMinor: 6_000,
+    image: SPARKLING_IMAGE,
+  },
+  {
+    id: 'house-red',
+    kind: 'wine',
+    name: 'House Red',
+    description: 'Soft and easy, for every table',
+    priceMinor: 1_600,
+    image: WINE_IMAGE,
+  },
+  {
+    id: 'pinot-grigio',
+    kind: 'wine',
+    name: 'Pinot Grigio',
+    description: 'Light white with pear and lemon',
+    priceMinor: 1_800,
+    image: WINE_IMAGE,
+  },
+  {
+    id: 'montepulciano',
+    kind: 'wine',
+    name: 'Montepulciano d’Abruzzo',
+    description: 'Round red with ripe cherry',
+    priceMinor: 2_000,
+    image: WINE_IMAGE,
+  },
+  {
+    id: 'sauvignon-blanc',
+    kind: 'wine',
+    name: 'Sauvignon Blanc',
+    description: 'Zesty white with fresh herbs',
+    priceMinor: 2_200,
+    image: WINE_IMAGE,
+  },
+  {
+    id: 'chianti-classico',
+    kind: 'wine',
+    name: 'Chianti Classico',
+    description: 'Tuscan red with violet and spice',
+    priceMinor: 2_800,
+    image: WINE_IMAGE,
+  },
+  {
+    id: 'rioja-reserva',
+    kind: 'wine',
+    name: 'Rioja Reserva',
+    description: 'Oak-aged red with vanilla and plum',
+    priceMinor: 3_000,
+    image: WINE_IMAGE,
+  },
+];
+
+// How a bottle is poured: the glass size sets the number of glasses per bottle.
+export const glassSizes = [
+  { id: 'glass-150', label: '5 glasses of 150 ml', glasses: 5 },
+  { id: 'glass-175', label: '4 glasses of 175 ml', glasses: 4 },
+  { id: 'glass-250', label: '3 glasses of 250 ml', glasses: 3 },
+] as const satisfies readonly (CatalogOption & { glasses: number })[];
+
+export type GlassSizeId = (typeof glassSizes)[number]['id'];
+
+export const MAX_BOTTLES = 500;
+
+export function glassSizeOf(id: string | undefined) {
+  return glassSizes.find((size) => size.id === id);
+}
+
+export function bottleOf(id: string | null | undefined): BottleProduct | undefined {
+  return bottleProducts.find((product) => product.id === id);
+}
 
 export const isMenuFood = (id: string): id is MenuFood =>
   (menuFoods as readonly string[]).includes(id);
 export const isPackagedDrink = (id: string): id is PackagedDrink =>
   (packagedDrinks as readonly string[]).includes(id);
+export const isCocktailDrink = (id: string): id is CocktailDrink =>
+  id === 'cocktails-spirits-only' || id === 'drinks-all';
 export const isTimedDrink = (id: string): id is TimedDrink =>
   (timedDrinks as readonly string[]).includes(id);
 export const isTimedEntertainment = (id: string): id is TimedEntertainment =>
@@ -364,12 +506,25 @@ export function menuOf(food: MenuFood, id: string | undefined): Menu | undefined
   return foodMenus[food].find((menu) => menu.id === id);
 }
 
-export function packageLabel(drink: PackagedDrink, id: string | undefined): string {
+export function packageLabel(drink: CocktailDrink, id: string | undefined): string {
   return drinkPackages[drink].find((option) => option.id === id)?.label ?? '';
 }
 
-export function guestsText(guests: number): string {
-  return guests === 1 ? '1 guest' : `${guests} guests`;
+export function partySizeOf(id: string | null | undefined) {
+  return partySizes.find((size) => size.id === id);
+}
+
+// Reads naturally inside a sentence: "40 to 60 guests", "up to 100 guests".
+export function guestsText(id: string | null | undefined): string {
+  const size = partySizeOf(id);
+  if (!size) return '';
+  return size.id === 'size-up-to-100'
+    ? `up to ${size.guestsMax} guests`
+    : `${size.guestsMin} to ${size.guestsMax} guests`;
+}
+
+export function partySizeLabel(id: string | null | undefined): string {
+  return partySizeOf(id)?.label ?? '';
 }
 
 export type StepKind =
@@ -386,13 +541,19 @@ export interface WizardStep {
 export const wizardSteps = [
   {
     id: 'event-type',
-    title: "What's the event you wish to plan?",
+    title: 'Tell us, what are you planning?',
     kind: 'single',
     required: true,
     options: eventTypes,
   },
   { id: 'date-time', title: 'Date & Time', kind: 'date-time', required: true },
-  { id: 'party-size', title: 'Party size', kind: 'slider', required: true },
+  {
+    id: 'party-size',
+    title: 'Party size',
+    kind: 'single',
+    required: true,
+    options: partySizes,
+  },
   { id: 'food', title: 'Food', kind: 'multiple', required: true, options: foodOptions },
   { id: 'drinks', title: 'Drinks', kind: 'multiple', required: true, options: drinksOptions },
   {

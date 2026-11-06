@@ -9,9 +9,9 @@ const menuTitles: Record<MenuFood, string> = {
 };
 
 const packageTitles: Record<PackagedDrink, string> = {
-  'cocktails-spirits-only': 'Cocktails/spirits only: how much per guest?',
-  'drinks-all': 'Drinks all: how many cocktails per guest?',
-  'wine-only': 'Wine only: what would you like?',
+  'cocktails-spirits-only': 'Cocktails/spirits only: how many per guest?',
+  'drinks-all': 'Drinks all: cocktails and bottles',
+  'wine-only': 'Wine only: choose your bottles',
 };
 
 export const wizardContent = {
@@ -27,14 +27,29 @@ export const wizardContent = {
   hints: {
     multiple: 'Choose as many as you like.',
     budget: 'A rough idea is fine. It helps us suggest the right options.',
-    guests: 'Slide to the number of guests you expect.',
     menu: 'Tap the menu you like.',
     package: 'Choose one option.',
     contact: "We'll use these details to send you your estimate.",
   },
   removed: (removed: string, picked: string) =>
     `${removed} can't be combined with ${picked}, so we've removed it.`,
+  menuHeading: 'Menu',
+  menuChoose: 'Choose this menu',
+  menuChosen: 'Chosen',
+  wine: {
+    kinds: 'Type of wine',
+    glass: 'How to pour it',
+    glassFor: (name: string) => `${name}: how to pour it`,
+    quantity: 'Bottles',
+    quantityFor: (name: string) => `${name}: bottles`,
+    chosen: (count: number) => (count === 1 ? '1 wine chosen' : `${count} wines chosen`),
+  },
+  drinksAll: {
+    kind: 'Wine or champagne?',
+    bottle: 'Choose your bottle',
+  },
   dateTime: {
+    earliest: (date: string) => `We can plan events from ${date}, one month from today.`,
     date: 'Choose a date',
     start: 'Start time',
     end: 'End time',
@@ -42,8 +57,6 @@ export const wizardContent = {
     nextDay: '(next day)',
   },
   sliders: {
-    guests: 'Number of guests',
-    guestsValue: (guests: number) => `${guests} guests`,
     budget: 'Your budget',
     budgetValue: (amount: string, isTop: boolean) => (isTop ? `${amount} or more` : amount),
   },
@@ -52,6 +65,7 @@ export const wizardContent = {
     end: 'End time',
     nextDay: '(next day)',
     label: (item: string, part: string) => `${item}: ${part.toLowerCase()}`,
+    overlap: 'The DJ and live music take turns: please make their times not overlap.',
   },
   notes: {
     eventType: 'Tell us about your event',

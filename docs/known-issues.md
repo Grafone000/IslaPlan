@@ -11,15 +11,17 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Item | Detail |
 |---|---|
 | Prices not validated | The Excel sheet is a first working estimate, to be checked against real supplier quotes. Brunch has no prices of its own: it copies Lunch |
-| Menus and drinks packages have no price | The chosen menu, chef, number of cocktails or wine size are saved but do not change the estimate. A private chef costs the same whichever chef is chosen |
-| Real payment | `PaymentProvider` and `PaymentGateway` are stubs: Stripe still to connect, with a server-side webhook. The stub gateway believes what the browser reports, so today anyone with a request id could mark its deposit as paid. Harmless with no real money, but it must not reach production |
+| Placeholder wine list | Champagne and wine names, descriptions and prices are made up, and every bottle uses one of two placeholder photos (a real Tavernello carton among them). Replace with the real list in `src/domain/catalog.ts` before showing it to clients |
+| Menus and cocktail counts have no price | The chosen menu, chef, number of cocktails or glass size are saved but do not change the estimate. A private chef costs the same whichever chef is chosen |
+| Kendraw font not used | The IslaPlan name uses Nanum Pen Script, a free hand-drawn face close to Kendraw. Buy a Kendraw licence or keep the stand-in |
+| Real payment | Clients are no longer asked for a deposit; the deposit page and API stay only for older `deposit-pending` requests. `PaymentProvider` and `PaymentGateway` are stubs: Stripe still to connect, with a server-side webhook. The stub gateway believes what the browser reports, so today anyone with a request id could mark its deposit as paid. Harmless with no real money, but it must not reach production |
 | Real email | `EmailGateway` is a stub: messages are stored but nobody receives them |
 | Staff tools | With no CRM, staff can only see requests, reply to messages and upload photos from the Supabase dashboard |
 | Privacy | No privacy notice or UK GDPR basis for client data |
 | Production setup | Needs a separate Supabase production project with backups, email confirmation on and `LINK_GUEST_REQUESTS=true` |
 | API rate limits | Public APIs, usable by guests, have no rate limiting |
 | Attachment size on hosting | Files of up to 10 MB go through the server. Vercel functions cap the body at about 4.5 MB, so large files would fail there: upload directly to Storage or lower the limit |
-| Brand and contacts | `[Your Brand]`, `[City]`, `[email@yourbrand.com]` are placeholders |
+| Brand and contacts | The brand is now IslaPlan; `[City]` and `[email@yourbrand.com]` in the footer are still placeholders |
 | Provisional phone | `3519844008` is a test number, set in `src/config/business.ts` |
 
 ### Bugs
@@ -52,5 +54,9 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Resuming an event from the private area | An open event shows in My area, but the client can only carry on with the estimate from the browser that started it |
 | Photo size | Event photos load at full size, because signed links skip the image optimiser. Slow on a phone if staff upload large files |
 | Message dates | Messages show the date only, in UTC, with no time |
-| Old requests without menus | Requests saved before schema 2 are read with guests and budget set to the top of their old band, and no menus or packages. If such a client edits the event, the wizard asks for the missing answers. Only test data exists today |
-| Service times reset when the event hours change | Changing the event start or end resets a bartender, sommelier, DJ or live music slot that no longer fits to the whole event, without telling the client |
+| Old requests | Requests saved before schema 3 are converted when read: removed drinks are dropped, and menus, packages and bottles that did not exist are empty. If such a client edits the event, the wizard asks for the missing answers. Only test data exists today |
+| Service times reset when the event hours change | Changing the event start or end resets a bartender, sommelier, DJ or live music slot that no longer fits, without telling the client |
+| Magazine cover photo | Every estimate cover and every magazine in My area uses the same photo. One photo per event type would read better |
+| Wine only quantities | Nothing checks that the bottles chosen are enough for the guests |
+| Month-ahead rule uses the server's day | The earliest date is one month from today on the server clock (UTC). Near midnight the browser and the server can disagree by a day |
+| Page turn in a background tab | The magazine page turn is a CSS animation. Screenshots from a hidden browser pane can catch it half-way |

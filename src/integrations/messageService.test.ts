@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { business } from '@/config/business';
 import { createEstimatedRequest } from '@/domain/commands';
-import { priceTableV2 } from '@/domain/pricing/table.v2';
+import { priceTableV3 } from '@/domain/pricing/table.v3';
 import type { EventDetails, EventRequest } from '@/domain/request';
 import type { EmailMessage, EventMessage, RequestRepository } from './contracts';
 import { MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES, postMessage, type MessageServiceDeps } from './messageService';
@@ -20,11 +20,13 @@ const event: EventDetails = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  guests: 50,
+  partySize: 'size-40-60',
   food: { items: ['dinner'], menus: {}, ownFoodNote: null },
   drinks: {
     items: ['wine-only'],
-    packages: { 'wine-only': 'wine-175ml' },
+    packages: {},
+    drinksAllBottle: null,
+    wineBottles: [{ product: 'house-red', glass: 'glass-150', quantity: 10 }],
     times: {},
     ownDrinksNote: null,
   },
@@ -48,7 +50,7 @@ let deps: MessageServiceDeps;
 function setup(status: EventRequest['status'], accountId: string | null) {
   const base = createEstimatedRequest(
     { id: ID, accountId, contact, event },
-    { table: priceTableV2, config: business },
+    { table: priceTableV3, config: business },
     '2026-11-01T10:00:00.000Z',
   );
   stored = { ...base, status };

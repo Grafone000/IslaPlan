@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { menu } from './helpers';
 
 test('Log in opens the page with both log in and create account', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Log in' }).click();
+  await (await menu(page)).getByRole('link', { name: 'Log in' }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole('tab', { name: 'Log in' })).toBeVisible();
 

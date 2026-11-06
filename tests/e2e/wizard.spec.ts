@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
+import { pickBookableDay } from './helpers';
 
 try {
   process.loadEnvFile('.env.local');
@@ -12,25 +13,24 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PASSWORD = 'e2e-test-password';
 const DRAFT_KEY = 'event-planner:draft:v1';
 
-const option = (page: Page, name: string) =>
-  page.getByRole('button', { name, exact: true });
+const option = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 
 const continueButton = (page: Page) => page.getByRole('button', { name: 'Continue' });
 
 async function pickDateAndTime(page: Page) {
-  await page.getByRole('button', { name: /next month/i }).click();
-  await page.locator('[data-day]:not([data-outside]) button').nth(14).click();
+  await pickBookableDay(page);
   await page.getByLabel('Start time').selectOption('18:30');
   await page.getByLabel('End time').selectOption({ label: '01:00 (next day)' });
   await continueButton(page).click();
 }
 
-const guestsSlider = (page: Page) => page.getByRole('slider', { name: 'Number of guests' });
 const budgetSlider = (page: Page) => page.getByRole('slider', { name: 'Your budget' });
 
-async function setGuests(page: Page, guests: number) {
-  await guestsSlider(page).fill(String(guests));
-  await continueButton(page).click();
+async function pickWine(page: Page, name: RegExp, glass: string, bottles: number) {
+  await page.getByRole('button', { name }).click();
+  const label = name.source;
+  await page.getByLabel(new RegExp(`${label}: how to pour it`)).selectOption({ label: glass });
+  await page.getByLabel(new RegExp(`${label}: bottles`)).fill(String(bottles));
 }
 
 async function setBudget(page: Page, pounds: number) {
@@ -40,7 +40,7 @@ async function setBudget(page: Page, pounds: number) {
 
 async function answerUpToBudget(page: Page) {
   await page.goto('/');
-  await page.getByRole('link', { name: 'Book your event' }).first().click();
+  await page.getByRole('link', { name: 'Let’s start planning' }).click();
   await expect(page).toHaveURL(/\/plan\/event-type/);
 
   await option(page, 'Wedding').click();
@@ -48,7 +48,7 @@ async function answerUpToBudget(page: Page) {
   await pickDateAndTime(page);
 
   await expect(page).toHaveURL(/\/plan\/party-size/);
-  await setGuests(page, 50);
+  await option(page, 'From 40 to 60').click();
 
   await expect(page).toHaveURL(/\/plan\/food/);
   await option(page, 'Dinner').click();
@@ -59,7 +59,9 @@ async function answerUpToBudget(page: Page) {
   await continueButton(page).click();
 
   await expect(page).toHaveURL(/\/plan\/package-wine-only/);
-  await option(page, 'Wine, 175 ml glass').click();
+  await page.getByRole('tab', { name: 'Wine', exact: true }).click();
+  await pickWine(page, /House Red/, '5 glasses of 150 ml', 10);
+  await continueButton(page).click();
 
   await expect(page).toHaveURL(/\/plan\/entertainment/);
   await option(page, 'DJ').click();
@@ -92,19 +94,44 @@ test('date and time need a start and an end', async ({ page }) => {
   await page.goto('/plan');
   await option(page, 'Birthday').click();
   await expect(continueButton(page)).toBeDisabled();
-  await page.getByRole('button', { name: /next month/i }).click();
-  await page.locator('[data-day]:not([data-outside]) button').nth(14).click();
+  await pickBookableDay(page);
   await page.getByLabel('Start time').selectOption('18:30');
   await expect(continueButton(page)).toBeDisabled();
   await page.getByLabel('End time').selectOption('20:00');
   await expect(continueButton(page)).toBeEnabled();
 });
 
+test('days less than a month away can be seen but not picked', async ({ page }) => {
+  await page.goto('/plan');
+  await option(page, 'Birthday').click();
+  await expect(page.getByText(/We can plan events from .*, one month from today\./)).toBeVisible();
+  // Today is in the month on show, and every day of it before next month is disabled.
+  const todayButton = page.locator('[data-today] button');
+  await expect(todayButton).toBeDisabled();
+});
+
+test('party size is a choice of bands that moves on at a tap', async ({ page }) => {
+  await page.goto('/plan');
+  await option(page, 'Wedding').click();
+  await pickDateAndTime(page);
+  for (const band of [
+    'From 10 to 20',
+    'From 20 to 40',
+    'From 40 to 60',
+    'From 60 to 80',
+    'Up to 100',
+  ]) {
+    await expect(option(page, band)).toBeVisible();
+  }
+  await option(page, 'From 60 to 80').click();
+  await expect(page).toHaveURL(/\/plan\/food/);
+});
+
 test('picking Private chef removes Dinner and says why', async ({ page }) => {
   await page.goto('/plan');
   await option(page, 'Wedding').click();
   await pickDateAndTime(page);
-  await setGuests(page, 15);
+  await option(page, 'From 10 to 20').click();
 
   await option(page, 'Dinner').click();
   await option(page, 'Private chef').click();
@@ -119,7 +146,7 @@ test('answers survive a reload and going back', async ({ page }) => {
   await page.goto('/plan');
   await option(page, 'Graduation').click();
   await pickDateAndTime(page);
-  await setGuests(page, 33);
+  await option(page, 'From 20 to 40').click();
   await expect(page).toHaveURL(/\/plan\/food/);
 
   await page.reload();
@@ -128,7 +155,7 @@ test('answers survive a reload and going back', async ({ page }) => {
 
   await page.getByRole('link', { name: 'Back' }).click();
   await expect(page).toHaveURL(/\/plan\/party-size/);
-  await expect(guestsSlider(page)).toHaveValue('33');
+  await expect(option(page, 'From 20 to 40')).toHaveAttribute('aria-pressed', 'true');
 
   await page.goBack();
   await expect(page).toHaveURL(/\/plan\/food/);
@@ -141,7 +168,7 @@ test('menus, drinks packages and service times follow the choices', async ({ pag
   await page.goto('/plan');
   await option(page, 'Birthday').click();
   await pickDateAndTime(page);
-  await setGuests(page, 20);
+  await option(page, 'From 10 to 20').click();
 
   await option(page, 'Brunch').click();
   await option(page, 'I bring my own food').click();
@@ -150,6 +177,8 @@ test('menus, drinks packages and service times follow the choices', async ({ pag
 
   await expect(page).toHaveURL(/\/plan\/menu-brunch/);
   await expect(page.getByRole('heading', { name: 'Choose your brunch menu' })).toBeVisible();
+  // Each menu reads like a restaurant menu, with its dishes in full.
+  await expect(page.getByText('Eggs Benedict with honey-glazed ham')).toBeVisible();
   await page.getByRole('button', { name: /Maple & Rye/ }).click();
 
   await expect(page).toHaveURL(/\/plan\/drinks/);
@@ -162,13 +191,26 @@ test('menus, drinks packages and service times follow the choices', async ({ pag
   await continueButton(page).click();
 
   await expect(page).toHaveURL(/\/plan\/package-cocktails-spirits-only/);
-  await option(page, '2 cocktails per person, or ½ bottle of wine each').click();
+  await option(page, '2 cocktails per person').click();
   await expect(page).toHaveURL(/\/plan\/package-wine-only/);
-  await option(page, 'Prosecco/Champagne, 6 glasses').click();
+  await expect(continueButton(page)).toBeDisabled();
+  await pickWine(page, /Prosecco Extra Dry/, '3 glasses of 250 ml', 12);
+  await page.getByRole('tab', { name: 'Wine', exact: true }).click();
+  await pickWine(page, /Rioja Reserva/, '4 glasses of 175 ml', 6);
+  await expect(page.getByText('2 wines chosen')).toBeVisible();
+  await continueButton(page).click();
 
   await expect(page).toHaveURL(/\/plan\/entertainment/);
+  await option(page, 'DJ').click();
   await option(page, 'Live music').click();
-  await expect(page.getByLabel('Live music: end time')).toBeVisible();
+  // The second act starts where the first ends, so they never overlap by default.
+  await expect(page.getByLabel('DJ: end time')).toHaveValue('21:30');
+  await expect(page.getByLabel('Live music: start time')).toHaveValue('21:30');
+  await page.getByLabel('DJ: end time').selectOption({ label: '23:00' });
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('take turns');
+  await expect(continueButton(page)).toBeDisabled();
+  await page.getByLabel('DJ: end time').selectOption({ label: '21:30' });
+  await expect(continueButton(page)).toBeEnabled();
   await option(page, 'Activities | share your preference').click();
   await expect(page.getByLabel('Share your preference')).toBeVisible();
 
@@ -181,10 +223,11 @@ test('menus, drinks packages and service times follow the choices', async ({ pag
     menus: { brunch: 'maple-and-rye' },
     ownFoodNote: 'A birthday cake',
   });
-  expect(draft.drinks.packages).toEqual({
-    'cocktails-spirits-only': 'two-cocktails-or-half-bottle',
-    'wine-only': 'prosecco-champagne-6-glasses',
-  });
+  expect(draft.drinks.packages).toEqual({ 'cocktails-spirits-only': 'two-cocktails' });
+  expect(draft.drinks.wineBottles).toEqual([
+    { product: 'prosecco-extra-dry', glass: 'glass-250', quantity: 12 },
+    { product: 'rioja-reserva', glass: 'glass-175', quantity: 6 },
+  ]);
   expect(draft.drinks.times['private-bartender']).toEqual({
     startTime: '18:30',
     startsNextDay: false,
@@ -197,10 +240,10 @@ test('the budget slider moves in steps of £50 and tops out at "or more"', async
   await page.goto('/plan');
   await option(page, 'Wedding').click();
   await pickDateAndTime(page);
-  await setGuests(page, 40);
+  await option(page, 'From 20 to 40').click();
   await option(page, 'Dinner').click();
   await continueButton(page).click();
-  await option(page, 'Wine tasting').click();
+  await option(page, 'Private sommelier').click();
   await continueButton(page).click();
   await page.getByRole('button', { name: 'Skip this step' }).click();
   await page.getByRole('button', { name: 'Skip this step' }).click();
@@ -266,7 +309,12 @@ test.describe('with Supabase', () => {
     await page.getByRole('button', { name: 'See my estimate' }).click();
 
     await expect(page).toHaveURL(/\/plan\/estimate/);
-    await expect(page.getByText('£4,500 - £7,250')).toBeVisible();
+    // The estimate is a magazine: the cover, the event, then the numbers.
+    await expect(page.getByRole('article', { name: 'Magazine cover' })).toBeVisible();
+    await page.getByRole('button', { name: 'Turn the page' }).click();
+    await expect(page.getByText('10 × House Red (5 glasses of 150 ml)')).toBeVisible();
+    await page.getByRole('button', { name: 'Turn the page' }).click();
+    await expect(page.getByText('£3,200 - £7,360')).toBeVisible();
 
     const id = await draftId(page);
     requestIds.push(id);
@@ -275,11 +323,16 @@ test.describe('with Supabase', () => {
     expect(row.account_id).toBeNull();
     expect(row.payload.event.endTime).toBe('01:00');
     expect(row.payload.event.endsNextDay).toBe(true);
-    expect(row.payload.estimate.depositAmount).toBe(117_500);
-    expect(row.payload.schemaVersion).toBe(2);
-    expect(row.payload.event.guests).toBe(50);
+    expect(row.payload.schemaVersion).toBe(3);
+    expect(row.payload.event.partySize).toBe('size-40-60');
     expect(row.payload.event.budget).toBe(500_000);
-    expect(row.payload.event.drinks.packages).toEqual({ 'wine-only': 'wine-175ml' });
+    expect(row.payload.event.drinks.wineBottles).toEqual([
+      { product: 'house-red', glass: 'glass-150', quantity: 10 },
+    ]);
+    expect(row.payload.estimate.bottleLines[0]).toMatchObject({
+      quantityLow: 10,
+      amountLow: 16_000,
+    });
     expect(row.payload.event.entertainment.times.dj).toEqual({
       startTime: '18:30',
       startsNextDay: false,
@@ -303,7 +356,7 @@ test.describe('with Supabase', () => {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(PASSWORD);
     await page.locator('form').getByRole('button', { name: 'Log in' }).click();
-    await expect(page.getByRole('link', { name: 'My area' })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
 
     await answerUpToBudget(page);
     await expect(page.getByText('Step 10 of 10')).toBeVisible();

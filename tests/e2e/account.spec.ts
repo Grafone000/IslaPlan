@@ -31,11 +31,13 @@ const eventOn = (date: string) => ({
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  guests: 30,
+  partySize: 'size-20-40',
   food: { items: ['dinner'], menus: {}, ownFoodNote: null },
   drinks: {
     items: ['wine-only'],
-    packages: { 'wine-only': 'wine-175ml' },
+    packages: {},
+    drinksAllBottle: null,
+    wineBottles: [{ product: 'house-red', glass: 'glass-150', quantity: 10 }],
     times: {},
     ownDrinksNote: null,
   },
@@ -73,22 +75,32 @@ test.describe('private area', () => {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(PASSWORD);
     await page.locator('form').getByRole('button', { name: 'Log in' }).click();
-    await expect(page.getByRole('link', { name: 'My area' })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
   }
 
+  // The app only books a month ahead, so a past event is created ahead and moved back here.
   async function createEvent(api: APIRequestContext, date: string) {
     const id = crypto.randomUUID();
     const response = await api.post('/api/requests', {
-      data: { id, contact, event: eventOn(date) },
+      data: { id, contact, event: eventOn(FUTURE) },
     });
     expect(response.status()).toBe(201);
+    if (date !== FUTURE) {
+      const { request } = await response.json();
+      const payload = { ...request, event: { ...request.event, date } };
+      const { error } = await admin
+        .from('event_requests')
+        .update({ event_date: date, payload })
+        .eq('id', id);
+      expect(error).toBeNull();
+    }
     return id;
   }
 
   test('lists upcoming and past events and hides declined ones', async ({ page }) => {
     await logInNewUser(page, 'list');
     await page.goto('/account');
-    await expect(page.getByText('You have no upcoming events yet.')).toBeVisible();
+    await expect(page.getByText(/Your table is empty for now/)).toBeVisible();
 
     await createEvent(page.request, FUTURE);
     await createEvent(page.request, PAST);
@@ -97,16 +109,14 @@ test.describe('private area', () => {
     await page.request.patch(`/api/requests/${declined}`, { data: { type: 'decline' } });
 
     await page.reload();
-    const upcoming = page.locator('section', {
-      has: page.getByRole('heading', { name: 'Upcoming events' }),
-    });
-    const past = page.locator('section', {
-      has: page.getByRole('heading', { name: 'Past events' }),
-    });
-    await expect(upcoming.getByRole('link')).toHaveCount(1);
-    await expect(upcoming.getByText('1 June 2030')).toBeVisible();
-    await expect(past.getByRole('link')).toHaveCount(1);
-    await expect(past.getByText('10 March 2024')).toBeVisible();
+    // Each event is a magazine on the marble table, upcoming ones first.
+    const table = page.getByRole('list', { name: 'Your event magazines' });
+    const magazines = table.getByRole('link');
+    await expect(magazines).toHaveCount(2);
+    await expect(magazines.nth(0)).toContainText('1 June 2030');
+    await expect(magazines.nth(0)).toContainText('Upcoming');
+    await expect(magazines.nth(1)).toContainText('10 March 2024');
+    await expect(magazines.nth(1)).toContainText('Past');
     await expect(page.getByText('1 January 2031')).toHaveCount(0);
 
     const blocked = await page.goto(`/account/events/${declined}`);
@@ -125,7 +135,7 @@ test.describe('private area', () => {
     await page.goto('/account');
     await page.getByRole('link', { name: 'View Birthday, 10 March 2024' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Birthday' })).toBeVisible();
-    await expect(page.getByText('30 guests')).toBeVisible();
+    await expect(page.getByText('From 20 to 40')).toBeVisible();
     await expect(page.getByText('Estimate ready')).toBeVisible();
 
     const photo = page.getByRole('img', { name: 'Photo from your event: first.png' });

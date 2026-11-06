@@ -16,7 +16,7 @@ import {
   eventTypes,
   foodMenus,
   foodOptions,
-  guestLimits,
+  partySizes,
   isTimedDrink,
   isTimedEntertainment,
   itemLabel,
@@ -25,6 +25,7 @@ import {
   type EntertainmentId,
   type EventTypeId,
   type FoodId,
+  type PartySizeId,
   type StepKind,
   type WizardStepId,
 } from '@/domain/catalog';
@@ -45,11 +46,13 @@ import {
 import { requestsApi } from '@/integrations';
 import { ContactStep } from './ContactStep';
 import { DateTimeStep } from './DateTimeStep';
+import { DrinksAllStep } from './DrinksAllStep';
 import { MenuStep } from './MenuStep';
 import { MultiChoiceStep } from './MultiChoiceStep';
 import { SingleChoiceStep } from './SingleChoiceStep';
 import { SliderStep } from './SliderStep';
 import { TimeSlotFields } from './TimeSlotFields';
+import { WineBottlesStep } from './WineBottlesStep';
 import { useWizard } from './WizardProvider';
 
 const ESTIMATE_PATH = '/plan/estimate';
@@ -73,7 +76,6 @@ function stepInfo(stepId: WizardStepId): StepInfo | null {
   return wizardSteps.find((candidate) => candidate.id === stepId) ?? null;
 }
 
-const formatGuests = (guests: number) => content.sliders.guestsValue(guests);
 const formatBudget = (budget: number) =>
   content.sliders.budgetValue(formatMoney(budget), budget >= budgetLimits.maxMinor);
 
@@ -245,8 +247,13 @@ function Step({
   const previous = previousStep(stepId, event, skipContact);
   // A slider always has a value: the client may keep the one it starts on.
   const complete = step.kind === 'slider' || isStepComplete(stepId, state);
+  // Bottle pages gather several answers, so they move on with Continue, not on a tap.
   const showContinue =
-    !['single', 'contact', 'menu', 'package'].includes(step.kind) || stepId === 'event-type';
+    !['single', 'contact', 'menu', 'package'].includes(step.kind) ||
+    stepId === 'event-type' ||
+    packagedDrink === 'wine-only' ||
+    packagedDrink === 'drinks-all';
+  const overlapping = stepId === 'entertainment' && !complete;
   const eventNeedsNote = event.type === 'other-bespoke';
 
   return (
@@ -288,18 +295,11 @@ function Step({
       )}
 
       {stepId === 'party-size' && (
-        <>
-          <p className="mt-0 mb-4 text-muted">{content.hints.guests}</p>
-          <SliderStep
-            label={content.sliders.guests}
-            min={guestLimits.min}
-            max={guestLimits.max}
-            step={guestLimits.step}
-            value={event.guests ?? guestLimits.initial}
-            format={formatGuests}
-            onChange={(guests) => dispatch({ type: 'SET_ANSWER', patch: { guests } })}
-          />
-        </>
+        <SingleChoiceStep
+          options={partySizes}
+          selected={event.partySize}
+          onSelect={(partySize) => advance({ partySize: partySize as PartySizeId })}
+        />
       )}
 
       {stepId === 'food' && (
@@ -347,7 +347,7 @@ function Step({
         />
       )}
 
-      {packagedDrink && (
+      {packagedDrink === 'cocktails-spirits-only' && (
         <>
           <p className="mt-0 mb-4 text-muted">{content.hints.package}</p>
           <SingleChoiceStep
@@ -357,15 +357,30 @@ function Step({
               advance({
                 drinks: {
                   ...event.drinks,
-                  packages: {
-                    ...event.drinks.packages,
-                    [packagedDrink]: option,
-                  },
+                  packages: { ...event.drinks.packages, [packagedDrink]: option },
                 },
               })
             }
           />
         </>
+      )}
+
+      {packagedDrink === 'drinks-all' && (
+        <DrinksAllStep
+          selectedPackage={event.drinks.packages['drinks-all']}
+          bottle={event.drinks.drinksAllBottle}
+          onPackage={(option) =>
+            setDrinks({ packages: { ...event.drinks.packages, 'drinks-all': option } })
+          }
+          onBottle={(drinksAllBottle) => setDrinks({ drinksAllBottle })}
+        />
+      )}
+
+      {packagedDrink === 'wine-only' && (
+        <WineBottlesStep
+          bottles={event.drinks.wineBottles}
+          onChange={(wineBottles) => setDrinks({ wineBottles })}
+        />
       )}
 
       {stepId === 'entertainment' && (
@@ -375,6 +390,11 @@ function Step({
           onChange={(items) => setEntertainment({ items })}
           renderDetail={entertainmentDetail}
         />
+      )}
+      {overlapping && (
+        <p role="alert" className="mt-4 mb-0 text-[15px] text-accent">
+          {content.slot.overlap}
+        </p>
       )}
 
       {stepId === 'decorations' && (
@@ -488,7 +508,6 @@ function Step({
 
 // The value a slider shows before the client moves it still has to be saved.
 function sliderValue(stepId: WizardStepId, event: EventDetails): Partial<EventDetails> {
-  if (stepId === 'party-size') return { guests: event.guests ?? guestLimits.initial };
   if (stepId === 'budget') return { budget: event.budget ?? budgetLimits.initialMinor };
   return {};
 }

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { guestsText } from './catalog';
-import { formatEventDate, formatShortDate } from './dates';
+import { earliestEventDate, formatEventDate, formatShortDate } from './dates';
+
+describe('earliestEventDate', () => {
+  it('is one month from today', () => {
+    expect(earliestEventDate(new Date(2026, 10, 6))).toBe('2026-12-06');
+    expect(earliestEventDate(new Date(2027, 0, 31))).toBe('2027-02-28');
+  });
+});
 
 describe('formatEventDate', () => {
   it('uses the long British form', () => {
@@ -21,7 +28,7 @@ describe('formatShortDate', () => {
 
 describe('guestsText', () => {
   it('reads naturally inside a sentence', () => {
-    expect(guestsText(50)).toBe('50 guests');
-    expect(guestsText(1)).toBe('1 guest');
+    expect(guestsText('size-40-60')).toBe('40 to 60 guests');
+    expect(guestsText('size-up-to-100')).toBe('up to 100 guests');
   });
 });

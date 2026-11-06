@@ -1,11 +1,12 @@
 import {
   budgetLimits,
-  guestLimits,
+  partySizes,
   pricedCategoryOptions as categoryOptions,
+  type PartySizeId,
   type PricedCategory,
 } from '../catalog';
 import { calculateEstimate, lookupPrice, type EstimateInput, type PricingConfig } from './engine';
-import type { PriceTable } from './table.v2';
+import type { PriceTable } from './table.v3';
 
 export interface CostDriver {
   category: PricedCategory;
@@ -15,7 +16,7 @@ export interface CostDriver {
 }
 
 export type Suggestion =
-  | { kind: 'fewer-guests'; from: number; to: number; saving: number }
+  | { kind: 'smaller-party'; from: PartySizeId; to: PartySizeId; saving: number }
   | { kind: 'swap-item'; category: PricedCategory; from: string; to: string; saving: number }
   | { kind: 'remove-item'; category: PricedCategory; item: string; saving: number };
 
@@ -35,7 +36,9 @@ export interface CostAnalysis {
 type SavingOf = (changed: EstimateInput) => number;
 
 const MAX_SUGGESTIONS = 3;
-const FEWER_GUESTS_STEP = 10;
+
+// These need the client to pick bottles, so a swap to them has no price to compare.
+const needsBottles = ['wine-only', 'drinks-all'];
 
 const requiredCategories: readonly PricedCategory[] = ['food', 'drinks'];
 
@@ -46,16 +49,29 @@ export function analyseCostDrivers(
   config: PricingConfig,
 ): CostAnalysis {
   const estimate = calculateEstimate(input, table, config);
-  const { midpoint, guests } = estimate;
+  const { midpoint, guestsMin, guestsMax } = estimate;
   if (midpoint === null) {
     return { midpoint: null, drivers: [], suggestions: [], budgetGap: null };
   }
 
-  const drivers = estimate.lines
-    .map(({ category, item, lowPerPerson, highPerPerson }) => {
-      const amount = ((lowPerPerson + highPerPerson) * guests) / 2;
-      return { category, item, amount, sharePercent: Math.round((amount / midpoint) * 100) };
-    })
+  // An item's cost is its per-person part plus any bottles that come with it.
+  const amounts = new Map<string, { category: PricedCategory; item: string; amount: number }>();
+  const add = (category: PricedCategory, item: string, amount: number) => {
+    const key = `${category}:${item}`;
+    const current = amounts.get(key);
+    amounts.set(key, { category, item, amount: (current?.amount ?? 0) + amount });
+  };
+  for (const { category, item, lowPerPerson, highPerPerson } of estimate.lines) {
+    add(category, item, (lowPerPerson * guestsMin + highPerPerson * guestsMax) / 2);
+  }
+  for (const line of estimate.bottleLines) {
+    add('drinks', line.item, (line.amountLow + line.amountHigh) / 2);
+  }
+  const drivers = [...amounts.values()]
+    .map((driver) => ({
+      ...driver,
+      sharePercent: Math.round((driver.amount / midpoint) * 100),
+    }))
     .sort((a, b) => b.amount - a.amount);
 
   const savingOf: SavingOf = (changed) =>
@@ -75,7 +91,7 @@ export function analyseCostDrivers(
       .slice(0, 1),
   );
 
-  const suggestions = [fewerGuestsSuggestion(input, savingOf), ...itemSuggestions]
+  const suggestions = [smallerPartySuggestion(input, savingOf), ...itemSuggestions]
     .filter((suggestion) => suggestion !== null)
     .filter((suggestion) => suggestion.saving > 0)
     .sort((a, b) => b.saving - a.saving)
@@ -109,7 +125,12 @@ function swapSuggestion(
 ): Suggestion | null {
   const selected: readonly string[] = input[category];
   const [next] = categoryOptions[category]
-    .filter((option) => !selected.includes(option.id) && isPriced(category, option.id))
+    .filter(
+      (option) =>
+        !selected.includes(option.id) &&
+        !needsBottles.includes(option.id) &&
+        isPriced(category, option.id),
+    )
     .map((option) => ({
       to: option.id,
       items: selected.map((id) => (id === item ? option.id : id)),
@@ -136,16 +157,17 @@ function removeSuggestion(
   return { kind: 'remove-item', category, item, saving };
 }
 
-function fewerGuestsSuggestion(input: EstimateInput, savingOf: SavingOf): Suggestion | null {
-  const to = Math.max(guestLimits.min, input.guests - FEWER_GUESTS_STEP);
-  if (to >= input.guests) {
+function smallerPartySuggestion(input: EstimateInput, savingOf: SavingOf): Suggestion | null {
+  const index = partySizes.findIndex((size) => size.id === input.partySize);
+  if (index <= 0) {
     return null;
   }
+  const to = partySizes[index - 1].id;
   return {
-    kind: 'fewer-guests',
-    from: input.guests,
+    kind: 'smaller-party',
+    from: input.partySize,
     to,
-    saving: savingOf({ ...input, guests: to }),
+    saving: savingOf({ ...input, partySize: to }),
   };
 }
 

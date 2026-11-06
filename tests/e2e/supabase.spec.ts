@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
+import { menu } from './helpers';
 
 // Runs against the Supabase project in .env.local. Test users are created through the admin
 // API, which sends no email, and everything is removed at the end.
@@ -30,11 +31,13 @@ const event = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  guests: 50,
+  partySize: 'size-40-60',
   food: { items: ['dinner'], menus: {}, ownFoodNote: null },
   drinks: {
     items: ['wine-only'],
-    packages: { 'wine-only': 'wine-175ml' },
+    packages: {},
+    drinksAllBottle: null,
+    wineBottles: [{ product: 'house-red', glass: 'glass-150', quantity: 10 }],
     times: {},
     ownDrinksNote: null,
   },
@@ -91,7 +94,7 @@ test.describe('with Supabase', () => {
     await page.locator('form').getByRole('button', { name: 'Log in' }).click();
   }
 
-  const nav = (page: Page) => page.getByRole('navigation', { name: 'Main' });
+  const nav = (page: Page) => menu(page);
 
   test('a wrong password shows a friendly error', async ({ page }) => {
     await logIn(page, 'wrong-password');
@@ -104,18 +107,19 @@ test.describe('with Supabase', () => {
   test('logging in returns to the Home, and logging out works', async ({ page }) => {
     await logIn(page);
     await expect(page).toHaveURL(/\/$/);
-    await expect(nav(page).getByRole('link', { name: 'My area' })).toBeVisible();
+    await expect((await nav(page)).getByRole('link', { name: 'My area' })).toBeVisible();
 
-    await nav(page).getByRole('button', { name: 'Log out' }).click();
-    await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible();
+    await (await nav(page)).getByRole('button', { name: 'Log out' }).click();
+    await expect((await nav(page)).getByRole('link', { name: 'Log in' })).toBeVisible();
 
     await page.reload();
-    await expect(nav(page).getByRole('link', { name: 'Log in' })).toBeVisible();
+    await expect((await nav(page)).getByRole('link', { name: 'Log in' })).toBeVisible();
   });
 
   test('the private area lets a logged-in user through', async ({ page }) => {
     await logIn(page);
-    await expect(nav(page).getByRole('link', { name: 'My area' })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expect((await nav(page)).getByRole('link', { name: 'My area' })).toBeVisible();
     await page.goto('/account');
     await expect(page).not.toHaveURL(/\/login/);
   });
@@ -137,7 +141,7 @@ test.describe('with Supabase', () => {
     await page.locator('form').getByRole('button', { name: 'Create account' }).click();
 
     await expect(page).toHaveURL(/\/$/);
-    await expect(nav(page).getByRole('link', { name: 'My area' })).toBeVisible();
+    await expect((await nav(page)).getByRole('link', { name: 'My area' })).toBeVisible();
 
     const { data } = await admin.auth.admin.listUsers();
     const created = data.users.find((user) => user.email === newEmail);
@@ -156,7 +160,8 @@ test.describe('with Supabase', () => {
     baseURL,
   }) => {
     await logIn(page);
-    await expect(nav(page).getByRole('link', { name: 'My area' })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expect((await nav(page)).getByRole('link', { name: 'My area' })).toBeVisible();
 
     const id = crypto.randomUUID();
     requestIds.push(id);
@@ -177,9 +182,9 @@ test.describe('with Supabase', () => {
     expect(row.account_id).toBe(userId);
     expect(row.contact_email).toBe(email);
     expect(row.event_date).toBe('2027-05-14');
-    expect(row.payload.estimate.totalLow).toBe(450_000);
-    expect(row.payload.estimate.totalHigh).toBe(725_000);
-    expect(row.payload.estimate.depositAmount).toBe(117_500);
+    expect(row.payload.estimate.totalLow).toBe(320_000);
+    expect(row.payload.estimate.totalHigh).toBe(736_000);
+    expect(row.payload.estimate.depositAmount).toBe(105_600);
 
     const notYet = await page.request.patch(`/api/requests/${id}`, { data: { type: 'proceed' } });
     expect(notYet.status()).toBe(409);

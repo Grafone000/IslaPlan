@@ -1,5 +1,6 @@
 import {
   isMenuFood,
+  isCocktailDrink,
   isPackagedDrink,
   isTimedDrink,
   isTimedEntertainment,
@@ -18,12 +19,12 @@ import {
   type EventRequest,
   type TimeSlot,
 } from './request';
-import { isValidSlot, wholeEventSlot } from './times';
+import { hasOverlap, isValidSlot, slotAfter, splitSlot, wholeEventSlot } from './times';
 import { isContact } from './validation';
 
 export { endTimes, isValidEnd, startTimes } from './times';
 
-export const DRAFT_VERSION = 2;
+export const DRAFT_VERSION = 3;
 
 export interface WizardState {
   draftVersion: typeof DRAFT_VERSION;
@@ -115,12 +116,44 @@ function pick<Key extends string, Value>(
   return result;
 }
 
+// The DJ and live music take turns, so a newly added one starts where the others end.
+function entertainmentTimes(event: EventDetails): EventDetails['entertainment']['times'] {
+  const { items, times } = event.entertainment;
+  const result: EventDetails['entertainment']['times'] = {};
+  const kept = items
+    .filter(isTimedEntertainment)
+    .filter((item) => times[item] && isValidSlot(event, times[item]));
+  for (const item of kept) result[item] = times[item];
+  const placed = [...kept];
+  for (const item of items.filter(isTimedEntertainment)) {
+    if (result[item]) continue;
+    const free = slotAfter(event, Object.values(result));
+    if (free) {
+      result[item] = free;
+      placed.push(item);
+      continue;
+    }
+    // No time left: the act placed last gives up the second half of its time.
+    const last = placed.at(-1);
+    const halves = last && result[last] ? splitSlot(result[last]) : null;
+    if (last && halves) {
+      [result[last], result[item]] = halves;
+      placed.push(item);
+    } else {
+      const whole = wholeEventSlot(event);
+      if (whole) result[item] = whole;
+    }
+  }
+  return result;
+}
+
 // Keeps the follow-up answers in step with the chosen items: answers for removed items go,
-// and every timed service gets the whole event as its slot until the client narrows it.
+// and every timed drinks service gets the whole event as its slot until the client narrows it.
 export function normalizeEvent(event: EventDetails): EventDetails {
   const fitSlot = (_: string, slot: TimeSlot | undefined) =>
     slot && isValidSlot(event, slot) ? slot : (wholeEventSlot(event) ?? undefined);
   const { food, drinks, entertainment } = event;
+  const drinksAllBottle = drinks.items.includes('drinks-all') ? drinks.drinksAllBottle : null;
   return {
     ...event,
     food: {
@@ -130,13 +163,15 @@ export function normalizeEvent(event: EventDetails): EventDetails {
     },
     drinks: {
       items: drinks.items,
-      packages: pick(drinks.packages, drinks.items.filter(isPackagedDrink)),
+      packages: pick(drinks.packages, drinks.items.filter(isCocktailDrink)),
+      drinksAllBottle,
+      wineBottles: drinks.items.includes('wine-only') ? drinks.wineBottles : [],
       times: pick(drinks.times, drinks.items.filter(isTimedDrink), fitSlot),
       ownDrinksNote: drinks.items.includes('byo-drinks') ? drinks.ownDrinksNote : null,
     },
     entertainment: {
       items: entertainment.items,
-      times: pick(entertainment.times, entertainment.items.filter(isTimedEntertainment), fitSlot),
+      times: entertainmentTimes(event),
       activitiesPreference: entertainment.items.includes('activities')
         ? entertainment.activitiesPreference
         : null,
@@ -160,6 +195,12 @@ export function isStepComplete(step: WizardStepId, state: WizardState): boolean 
   const food = menuFoodOf(step);
   if (food) return event.food.menus[food] !== undefined;
   const drink = packagedDrinkOf(step);
+  if (drink === 'wine-only') return event.drinks.wineBottles.length > 0;
+  if (drink === 'drinks-all') {
+    return (
+      event.drinks.packages['drinks-all'] !== undefined && !!event.drinks.drinksAllBottle?.product
+    );
+  }
   if (drink) return event.drinks.packages[drink] !== undefined;
   switch (step) {
     case 'event-type':
@@ -167,11 +208,13 @@ export function isStepComplete(step: WizardStepId, state: WizardState): boolean 
     case 'date-time':
       return event.date !== null && event.startTime !== null && event.endTime !== null;
     case 'party-size':
-      return event.guests !== null;
+      return event.partySize !== null;
     case 'food':
       return event.food.items.length > 0;
     case 'drinks':
       return event.drinks.items.length > 0;
+    case 'entertainment':
+      return !hasOverlap(Object.values(event.entertainment.times));
     case 'budget':
       return event.budget !== null;
     case 'contact':

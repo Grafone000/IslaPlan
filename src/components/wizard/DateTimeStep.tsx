@@ -4,6 +4,7 @@ import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/style.css';
 import { wizardContent as content } from '@/content/wizard';
 import type { EventDetails } from '@/domain/request';
+import { earliestEventDate, formatEventDate } from '@/domain/dates';
 import { endTimes, isValidEnd, startTimes } from '@/domain/wizard';
 
 const NEXT_DAY_SUFFIX = '|next-day';
@@ -25,6 +26,8 @@ export function DateTimeStep({
 }) {
   const { date, startTime, endTime, endsNextDay } = event;
   const today = startOfToday();
+  // Days before the earliest date stay visible but cannot be picked.
+  const earliest = parseISO(earliestEventDate(today));
 
   function changeStart(value: string) {
     const keepEnd = value !== '' && isValidEnd(value, endTime, endsNextDay);
@@ -46,6 +49,9 @@ export function DateTimeStep({
     <div className="flex flex-col gap-5">
       <div>
         <p className="mt-0 mb-2 text-[15px] font-medium">{content.dateTime.date}</p>
+        <p className="mt-0 mb-3 text-[14px] text-muted">
+          {content.dateTime.earliest(formatEventDate(format(earliest, 'yyyy-MM-dd')))}
+        </p>
         <div className="w-fit max-w-full rounded-button border border-line bg-white p-2">
           <DayPicker
             mode="single"
@@ -54,7 +60,7 @@ export function DateTimeStep({
             selected={date ? parseISO(date) : undefined}
             defaultMonth={date ? parseISO(date) : today}
             startMonth={today}
-            disabled={{ before: today }}
+            disabled={{ before: earliest }}
             onSelect={(day) => onChange({ date: day ? format(day, 'yyyy-MM-dd') : null })}
             style={calendarTheme}
           />

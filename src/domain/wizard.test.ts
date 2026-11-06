@@ -25,9 +25,12 @@ const T0 = '2026-11-01T10:00:00.000Z';
 const empty = () => createWizardState('id', T0);
 
 const food = (items: FoodId[], menus = {}) => ({ items, menus, ownFoodNote: null });
-const drinks = (items: DrinksId[], packages = {}) => ({
+const houseRed = { product: 'house-red', glass: 'glass-150' as const, quantity: 10 };
+const drinks = (items: DrinksId[], wineBottles = items.includes('wine-only') ? [houseRed] : []) => ({
   items,
-  packages,
+  packages: {},
+  drinksAllBottle: null,
+  wineBottles,
   times: {},
   ownDrinksNote: null,
 });
@@ -36,9 +39,9 @@ const answered = (): WizardState =>
   [
     { type: 'SET_ANSWER', patch: { type: 'wedding' } },
     { type: 'SET_ANSWER', patch: { date: '2027-05-14', startTime: '18:30', endTime: '23:00' } },
-    { type: 'SET_ANSWER', patch: { guests: 50 } },
+    { type: 'SET_ANSWER', patch: { partySize: 'size-40-60' } },
     { type: 'SET_ANSWER', patch: { food: food(['dinner']) } },
-    { type: 'SET_ANSWER', patch: { drinks: drinks(['wine-only'], { 'wine-only': 'wine-175ml' }) } },
+    { type: 'SET_ANSWER', patch: { drinks: drinks(['wine-only']) } },
     { type: 'SET_ANSWER', patch: { budget: 500_000 } },
     { type: 'REACH', step: 'budget' },
   ].reduce(
@@ -115,10 +118,75 @@ describe('step order', () => {
   });
 });
 
+describe('drinks pages', () => {
+  it('need bottles for Wine only, and a package and a bottle for Drinks all', () => {
+    const noBottles = withAnswer(answered(), { drinks: drinks(['wine-only'], []) });
+    expect(isStepComplete('package-wine-only', noBottles)).toBe(false);
+    expect(isStepComplete('package-wine-only', answered())).toBe(true);
+
+    const drinksAll = withAnswer(answered(), {
+      drinks: { ...drinks(['drinks-all']), packages: { 'drinks-all': 'four-cocktails-bottle' } },
+    });
+    expect(isStepComplete('package-drinks-all', drinksAll)).toBe(false);
+    const withBottle = withAnswer(drinksAll, {
+      drinks: { ...drinksAll.event.drinks, drinksAllBottle: { kind: 'wine', product: 'house-red' } },
+    });
+    expect(isStepComplete('package-drinks-all', withBottle)).toBe(true);
+  });
+
+  it('drop the bottles of a drink that is no longer chosen', () => {
+    const state = withAnswer(answered(), { drinks: { ...answered().event.drinks, items: ['byo-drinks'] } });
+    expect(state.event.drinks.wineBottles).toEqual([]);
+  });
+});
+
+describe('entertainment times', () => {
+  it('start the second timed act where the first ends, so they do not overlap', () => {
+    const dj = { startTime: '18:30', startsNextDay: false, endTime: '21:00', endsNextDay: false };
+    const state = withAnswer(answered(), {
+      entertainment: { items: ['dj', 'live-music'], times: { dj }, activitiesPreference: null },
+    });
+    expect(state.event.entertainment.times['live-music']).toEqual({
+      startTime: '21:00',
+      startsNextDay: false,
+      endTime: '23:00',
+      endsNextDay: false,
+    });
+    expect(isStepComplete('entertainment', state)).toBe(true);
+  });
+
+  it('share the event in two halves when the first act takes it all', () => {
+    const withDj = withAnswer(answered(), {
+      entertainment: { items: ['dj'], times: {}, activitiesPreference: null },
+    });
+    const state = withAnswer(withDj, {
+      entertainment: { ...withDj.event.entertainment, items: ['dj', 'live-music'] },
+    });
+    expect(state.event.entertainment.times.dj).toMatchObject({ startTime: '18:30', endTime: '20:30' });
+    expect(state.event.entertainment.times['live-music']).toMatchObject({
+      startTime: '20:30',
+      endTime: '23:00',
+    });
+    expect(isStepComplete('entertainment', state)).toBe(true);
+  });
+
+  it('block the step while two acts overlap', () => {
+    const slot = { startTime: '19:00', startsNextDay: false, endTime: '22:00', endsNextDay: false };
+    const state = withAnswer(answered(), {
+      entertainment: {
+        items: ['dj', 'live-music'],
+        times: { dj: slot, 'live-music': { ...slot, startTime: '21:00', endTime: '23:00' } },
+        activitiesPreference: null,
+      },
+    });
+    expect(isStepComplete('entertainment', state)).toBe(false);
+  });
+});
+
 describe('normalizeEvent', () => {
   it('gives each timed service the whole event until the client narrows it', () => {
     const state = withAnswer(answered(), {
-      drinks: drinks(['wine-only', 'private-bartender'], { 'wine-only': 'wine-175ml' }),
+      drinks: drinks(['wine-only', 'private-bartender']),
     });
     expect(state.event.drinks.times['private-bartender']).toEqual({
       startTime: '18:30',
@@ -232,8 +300,8 @@ describe('toggleOption', () => {
   });
 
   it('keeps drinks supply options exclusive but allows extras', () => {
-    const result = toggleOption(drinksOptions, ['wine-only', 'wine-tasting'], 'byo-drinks');
-    expect(result.selected).toEqual(['wine-tasting', 'byo-drinks']);
+    const result = toggleOption(drinksOptions, ['wine-only', 'private-bartender'], 'byo-drinks');
+    expect(result.selected).toEqual(['private-bartender', 'byo-drinks']);
   });
 
   it('lets Wine only and Cocktails/spirits only go together, but not with Drinks all', () => {

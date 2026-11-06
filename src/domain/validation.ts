@@ -6,16 +6,21 @@ import {
   entertainmentOptions,
   eventTypes,
   foodMenus,
+  bottleKinds,
+  bottleOf,
+  bottlesPerGuest,
   foodOptions,
-  guestLimits,
+  glassSizes,
+  isCocktailDrink,
   isMenuFood,
-  isPackagedDrink,
   isTimedDrink,
   isTimedEntertainment,
+  MAX_BOTTLES,
+  partySizes,
   type CatalogOption,
 } from './catalog';
 import type { Contact, EventDetails, TimeSlot } from './request';
-import { isValidSlot } from './times';
+import { hasOverlap, isValidSlot } from './times';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -151,6 +156,33 @@ function isFood(value: unknown): boolean {
   );
 }
 
+// Wine only needs at least one bottle, each listed once, poured one way, in whole bottles.
+function isWineBottles(value: unknown, wanted: boolean): boolean {
+  if (!Array.isArray(value)) return false;
+  if (!wanted) return value.length === 0;
+  const products = value.map((bottle) => (isRecord(bottle) ? bottle.product : null));
+  return (
+    value.length > 0 &&
+    new Set(products).size === value.length &&
+    value.every(
+      (bottle) =>
+        isRecord(bottle) &&
+        Object.keys(bottle).length === 3 &&
+        bottleOf(bottle.product as string) !== undefined &&
+        hasId(glassSizes, bottle.glass) &&
+        isWholeInRange(bottle.quantity, 1, MAX_BOTTLES, 1),
+    )
+  );
+}
+
+// Drinks all needs a kind of bottle and one bottle of that kind.
+function isDrinksAllBottle(value: unknown, wanted: boolean): boolean {
+  if (!wanted) return value === null;
+  if (!isRecord(value) || Object.keys(value).length !== 2) return false;
+  const bottle = bottleOf(value.product as string);
+  return hasId(bottleKinds, value.kind) && bottle?.kind === value.kind;
+}
+
 function isDrinks(value: unknown, event: Record<string, unknown>): boolean {
   if (!isRecord(value) || !isSelection(value.items, drinksOptions)) {
     return false;
@@ -158,9 +190,13 @@ function isDrinks(value: unknown, event: Record<string, unknown>): boolean {
   const items = value.items as string[];
   return (
     items.length > 0 &&
-    hasEntries(value.packages, items.filter(isPackagedDrink), (drink, option) =>
-      isPackagedDrink(drink) ? hasId(drinkPackages[drink], option) : false,
+    hasEntries(value.packages, items.filter(isCocktailDrink), (drink, option) =>
+      isCocktailDrink(drink) ? hasId(drinkPackages[drink], option) : false,
     ) &&
+    (!items.includes('drinks-all') ||
+      bottlesPerGuest[(value.packages as Record<string, string>)['drinks-all']] !== undefined) &&
+    isDrinksAllBottle(value.drinksAllBottle, items.includes('drinks-all')) &&
+    isWineBottles(value.wineBottles, items.includes('wine-only')) &&
     hasEntries(value.times, items.filter(isTimedDrink), (_, slot) => isSlotWithin(event, slot)) &&
     isOptionalNote(value.ownDrinksNote)
   );
@@ -174,7 +210,10 @@ function isEntertainment(value: unknown, event: Record<string, unknown>): boolea
   return (
     hasEntries(value.times, items.filter(isTimedEntertainment), (_, slot) =>
       isSlotWithin(event, slot),
-    ) && isOptionalNote(value.activitiesPreference)
+    ) &&
+    // The DJ and live music take turns: their hours cannot overlap.
+    !hasOverlap(Object.values(value.times as Record<string, TimeSlot>)) &&
+    isOptionalNote(value.activitiesPreference)
   );
 }
 
@@ -189,7 +228,7 @@ export function isCompleteEvent(value: unknown): value is EventDetails {
     isOptionalNote(value.typeNote) &&
     isCalendarDate(value.date) &&
     hasValidTimes(value) &&
-    isWholeInRange(value.guests, guestLimits.min, guestLimits.max, guestLimits.step) &&
+    isOption(value.partySize, partySizes) &&
     isFood(value.food) &&
     isDrinks(value.drinks, value) &&
     isEntertainment(value.entertainment, value) &&

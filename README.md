@@ -1,6 +1,6 @@
-# Event Planner
+# IslaPlan
 
-Client app for planning an event at home: choose the event step by step, see an indicative estimate, talk to the organiser and pay a deposit. Works on desktop and phone.
+Client app for planning an event at home: choose the event step by step, see an indicative estimate presented as a magazine, and talk to the organiser. Works on desktop and phone.
 
 Every request, accepted or declined, is stored in a versioned shape for the future CRM: see [docs/crm-contract.md](docs/crm-contract.md).
 
@@ -41,7 +41,7 @@ End-to-end tests create their own users and requests in the Supabase project, th
 
 ## Test cards
 
-The deposit page uses a stub provider. No card is charged, and only these numbers are accepted:
+Clients are no longer asked for a deposit. The deposit page stays for older requests still waiting for one; it uses a stub provider. No card is charged, and only these numbers are accepted:
 
 | Card | Result |
 |---|---|
@@ -61,7 +61,7 @@ Use any future expiry date, such as `12/30`, and any 3-digit CVC.
 | Path | Contents |
 |---|---|
 | `src/content/` | All editable copy |
-| `src/config/business.ts` | Contact email, phone, call rate, deposit percentage |
+| `src/config/business.ts` | Contact email, phone, deposit percentage |
 | `src/domain/` | Pure logic: catalogue, request states, pricing, wizard |
 | `src/integrations/` | Interfaces and their Supabase and stub implementations |
 | `docs/pricing-rules.md` | How the estimate is calculated, and the open questions in the price sheet |

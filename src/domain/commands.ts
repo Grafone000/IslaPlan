@@ -1,6 +1,6 @@
 import type { PricingConfig, EstimateInput } from './pricing/engine';
 import { calculateEstimate } from './pricing/engine';
-import type { PriceTable } from './pricing/table.v2';
+import type { PriceTable } from './pricing/table.v3';
 import {
   createDraft,
   transition,
@@ -53,11 +53,18 @@ const openDecisions = {
 export function estimateInputOf(event: EventDetails): EstimateInput {
   return {
     eventType: event.type as EstimateInput['eventType'],
-    guests: event.guests as number,
+    partySize: event.partySize as EstimateInput['partySize'],
     food: event.food.items,
     drinks: event.drinks.items,
     entertainment: event.entertainment.items,
     decorations: event.decorations.items,
+    wineBottles: event.drinks.wineBottles,
+    drinksAll: event.drinks.drinksAllBottle
+      ? {
+          package: event.drinks.packages['drinks-all'],
+          product: event.drinks.drinksAllBottle.product,
+        }
+      : null,
   };
 }
 
@@ -128,11 +135,8 @@ export function applyCommand(
       if (request.status !== 'accepted' && request.status !== 'consultation-requested') {
         throw notAllowed();
       }
-      // A fully on-request event has no deposit: staff follow up from here.
-      if (request.estimate?.kind === 'on-request') {
-        return touch(withDecisions(request, { proceed: true }));
-      }
-      return withDecisions(transition(request, 'deposit-pending', at), { proceed: true });
+      // No deposit is asked for any more: staff follow up from here.
+      return touch(withDecisions(request, { proceed: true }));
     }
 
     case 'decline': {

@@ -27,11 +27,13 @@ const event = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  guests: 50,
+  partySize: 'size-40-60',
   food: { items: ['dinner'], menus: {}, ownFoodNote: null },
   drinks: {
     items: ['wine-only'],
-    packages: { 'wine-only': 'wine-175ml' },
+    packages: {},
+    drinksAllBottle: null,
+    wineBottles: [{ product: 'house-red', glass: 'glass-150', quantity: 10 }],
     times: {},
     ownDrinksNote: null,
   },
@@ -62,19 +64,36 @@ test.describe('deposit', () => {
     const id = crypto.randomUUID();
     const created = await page.request.post('/api/requests', { data: { id, contact, event } });
     expect(created.status()).toBe(201);
-    let request;
-    for (const type of ['accept-estimate', 'skip-consultation', 'proceed']) {
+    let accepted;
+    for (const type of ['accept-estimate', 'skip-consultation']) {
       const response = await page.request.patch(`/api/requests/${id}`, { data: { type } });
       expect(response.status()).toBe(200);
-      ({ request } = await response.json());
+      ({ request: accepted } = await response.json());
     }
+    // Clients are no longer asked for a deposit, but requests saved before still wait for one:
+    // put this one in that state directly.
+    const request = {
+      ...accepted,
+      status: 'deposit-pending',
+      revision: accepted.revision + 1,
+      statusHistory: [
+        ...accepted.statusHistory,
+        { status: 'deposit-pending', at: new Date().toISOString() },
+      ],
+      decisions: { ...accepted.decisions, proceed: true },
+    };
+    const { error } = await admin
+      .from('event_requests')
+      .update({ status: request.status, revision: request.revision, payload: request })
+      .eq('id', id);
+    expect(error).toBeNull();
     await page.goto('/');
     await page.evaluate(
       ([key, draft]) => localStorage.setItem(key as string, JSON.stringify(draft)),
-      [DRAFT_KEY, { draftVersion: 2, id, event, contact, furthest: 'contact', request }],
+      [DRAFT_KEY, { draftVersion: 3, id, event, contact, furthest: 'contact', request }],
     );
     await page.goto('/plan/deposit');
-    await expect(page.getByRole('button', { name: 'Pay £1,175' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Pay £1,056' })).toBeEnabled();
     return id;
   }
 
@@ -85,10 +104,14 @@ test.describe('deposit', () => {
     await page.getByLabel('CVC').fill('987');
   }
 
-  const payButton = (page: Page) => page.getByRole('button', { name: 'Pay £1,175' });
+  const payButton = (page: Page) => page.getByRole('button', { name: 'Pay £1,056' });
 
   const row = async (id: string) => {
-    const { data } = await admin.from('event_requests').select('status, payload').eq('id', id).single();
+    const { data } = await admin
+      .from('event_requests')
+      .select('status, payload')
+      .eq('id', id)
+      .single();
     return data;
   };
 
@@ -106,7 +129,7 @@ test.describe('deposit', () => {
     expect(saved?.status).toBe('deposit-paid');
     expect(saved?.payload.payment).toMatchObject({
       provider: 'stub',
-      amount: 117_500,
+      amount: 105_600,
       currency: 'GBP',
       status: 'paid',
     });

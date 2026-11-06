@@ -1,17 +1,20 @@
 import type {
+  BottleKind,
+  CocktailDrink,
   DecorationId,
   DrinksId,
   EntertainmentId,
   EventTypeId,
   FoodId,
+  GlassSizeId,
   MenuFood,
-  PackagedDrink,
+  PartySizeId,
   PricedCategory,
   TimedDrink,
   TimedEntertainment,
 } from './catalog';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const requestStatuses = [
   'draft',
@@ -66,10 +69,25 @@ export interface FoodChoice {
   ownFoodNote: string | null;
 }
 
+// A bottle chosen for Wine only, with how it is poured and how many bottles.
+export interface WineBottle {
+  product: string;
+  glass: GlassSizeId;
+  quantity: number;
+}
+
+// The bottle that comes with a Drinks all package, one kind for every guest.
+export interface DrinksAllBottle {
+  kind: BottleKind;
+  product: string | null;
+}
+
 export interface DrinksChoice {
   items: DrinksId[];
-  // Package id per chosen drink that has packages.
-  packages: Partial<Record<PackagedDrink, string>>;
+  // Cocktails per guest for each chosen cocktail drink.
+  packages: Partial<Record<CocktailDrink, string>>;
+  drinksAllBottle: DrinksAllBottle | null;
+  wineBottles: WineBottle[];
   times: Partial<Record<TimedDrink, TimeSlot>>;
   ownDrinksNote: string | null;
 }
@@ -87,7 +105,7 @@ export interface EventDetails {
   startTime: string | null;
   endTime: string | null;
   endsNextDay: boolean;
-  guests: number | null;
+  partySize: PartySizeId | null;
   food: FoodChoice;
   drinks: DrinksChoice;
   entertainment: EntertainmentChoice;
@@ -104,6 +122,18 @@ export interface EstimateLine {
   highPerPerson: number;
 }
 
+// Bottles priced by the bottle rather than per person. Quantities follow the guest range
+// for Drinks all and are chosen by the client for Wine only.
+export interface BottleLine {
+  item: 'wine-only' | 'drinks-all';
+  product: string;
+  pricePerBottle: number;
+  quantityLow: number;
+  quantityHigh: number;
+  amountLow: number;
+  amountHigh: number;
+}
+
 export interface EstimateItemRef {
   category: PricedCategory;
   item: string;
@@ -114,8 +144,10 @@ export interface Estimate {
   kind: EstimateKind;
   pricingVersion: string;
   currency: string;
-  guests: number;
+  guestsMin: number;
+  guestsMax: number;
   lines: EstimateLine[];
+  bottleLines: BottleLine[];
   onRequestItems: EstimateItemRef[];
   totalLow: number | null;
   totalHigh: number | null;
@@ -198,8 +230,16 @@ export type EstimateStage = 'accept' | 'revise' | 'consultation' | 'proceed' | '
 // Which question the client is on, worked out from the saved request so a reload or a return
 // from a phone call lands on the same screen.
 export function estimateStage(request: EventRequest): EstimateStage {
-  const { status, decisions, estimate } = request;
-  if (isFinalStatus(status) || (decisions.proceed && estimate?.kind === 'on-request')) {
+  const { status, decisions } = request;
+  if (isFinalStatus(status)) {
+    return 'closed';
+  }
+  // Requests saved before deposits were dropped can still be waiting for one.
+  if (status === 'deposit-pending') {
+    return 'deposit';
+  }
+  // Saying yes to proceeding ends the client's part: staff get in touch, with no deposit.
+  if (decisions.proceed) {
     return 'closed';
   }
   switch (status) {
@@ -209,8 +249,6 @@ export function estimateStage(request: EventRequest): EstimateStage {
       return decisions.consultationWanted === null ? 'consultation' : 'proceed';
     case 'consultation-requested':
       return 'proceed';
-    case 'deposit-pending':
-      return 'deposit';
     default:
       return 'accept';
   }
@@ -247,9 +285,16 @@ export function createDraft(id: string, at: string): EventRequest {
       startTime: null,
       endTime: null,
       endsNextDay: false,
-      guests: null,
+      partySize: null,
       food: { items: [], menus: {}, ownFoodNote: null },
-      drinks: { items: [], packages: {}, times: {}, ownDrinksNote: null },
+      drinks: {
+        items: [],
+        packages: {},
+        drinksAllBottle: null,
+        wineBottles: [],
+        times: {},
+        ownDrinksNote: null,
+      },
       entertainment: { items: [], times: {}, activitiesPreference: null },
       decorations: { items: [], note: null },
       additionalInfo: '',

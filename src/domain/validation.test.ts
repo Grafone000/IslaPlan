@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isCompleteEvent,
-  isContact,
-  isEmail,
-  isPhone,
-  isUuid,
-  safeNextPath,
-} from './validation';
+import { isCompleteEvent, isContact, isEmail, isPhone, isUuid, safeNextPath } from './validation';
 
 const slot = (startTime: string, endTime: string) => ({
   startTime,
@@ -22,11 +15,13 @@ const event = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  guests: 50,
+  partySize: 'size-40-60',
   food: { items: ['dinner'], menus: {}, ownFoodNote: null },
   drinks: {
     items: ['wine-only'],
-    packages: { 'wine-only': 'wine-175ml' },
+    packages: {},
+    drinksAllBottle: null,
+    wineBottles: [{ product: 'house-red', glass: 'glass-150', quantity: 10 }],
     times: {},
     ownDrinksNote: null,
   },
@@ -56,17 +51,27 @@ describe('isCompleteEvent', () => {
     expect(
       isCompleteEvent({
         ...event,
-        food: { items: ['brunch', 'own-food'], menus: { brunch: 'maple-and-rye' }, ownFoodNote: 'Cake' },
+        food: {
+          items: ['brunch', 'own-food'],
+          menus: { brunch: 'maple-and-rye' },
+          ownFoodNote: 'Cake',
+        },
         drinks: {
           items: ['wine-only', 'cocktails-spirits-only', 'private-sommelier'],
-          packages: {
-            'wine-only': 'prosecco-champagne-6-glasses',
-            'cocktails-spirits-only': 'two-cocktails-or-half-bottle',
-          },
+          packages: { 'cocktails-spirits-only': 'two-cocktails' },
+          drinksAllBottle: null,
+          wineBottles: [
+            { product: 'prosecco-extra-dry', glass: 'glass-250', quantity: 12 },
+            { product: 'rioja-reserva', glass: 'glass-175', quantity: 6 },
+          ],
           times: { 'private-sommelier': slot('19:00', '21:00') },
           ownDrinksNote: null,
         },
-        entertainment: { items: ['dj'], times: { dj: slot('20:00', '23:00') }, activitiesPreference: null },
+        entertainment: {
+          items: ['dj'],
+          times: { dj: slot('20:00', '23:00') },
+          activitiesPreference: null,
+        },
       }),
     ).toBe(true);
   });
@@ -86,7 +91,47 @@ describe('isCompleteEvent', () => {
     ).toBe(true);
   });
 
+  it('accepts Drinks all with its cocktails and bottle', () => {
+    expect(
+      isCompleteEvent({
+        ...event,
+        drinks: {
+          ...event.drinks,
+          items: ['drinks-all'],
+          packages: { 'drinks-all': 'three-cocktails-half-bottle' },
+          drinksAllBottle: { kind: 'sparkling', product: 'cremant-brut' },
+          wineBottles: [],
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('accepts a DJ and live music that take turns', () => {
+    expect(
+      isCompleteEvent({
+        ...event,
+        entertainment: {
+          items: ['dj', 'live-music'],
+          times: { dj: slot('18:30', '21:00'), 'live-music': slot('21:00', '23:00') },
+          activitiesPreference: null,
+        },
+      }),
+    ).toBe(true);
+  });
+
   const food = (change: object) => ({ food: { ...event.food, ...change } });
+  const drinksAll = (change: object) =>
+    drinks({
+      items: ['drinks-all'],
+      packages: { 'drinks-all': 'four-cocktails-bottle' },
+      drinksAllBottle: { kind: 'wine', product: 'house-red' },
+      wineBottles: [],
+      ...change,
+    });
+  const bottle = (change: object) =>
+    drinks({
+      wineBottles: [{ product: 'house-red', glass: 'glass-150', quantity: 10, ...change }],
+    });
   const drinks = (change: object) => ({ drinks: { ...event.drinks, ...change } });
 
   it.each([
@@ -97,9 +142,8 @@ describe('isCompleteEvent', () => {
     ['end equal to start', { endTime: '18:30' }],
     ['end after 02:00 next day', { endTime: '03:00', endsNextDay: true }],
     ['bad time format', { startTime: '25:00' }],
-    ['too few guests', { guests: 9 }],
-    ['too many guests', { guests: 101 }],
-    ['part of a guest', { guests: 50.5 }],
+    ['unknown party size', { partySize: 'size-50-80' }],
+    ['a number of guests instead of a party size', { partySize: 50 }],
     ['no food', food({ items: [] })],
     ['no drinks', drinks({ items: [], packages: {} })],
     ['unknown food', food({ items: ['pizza'] })],
@@ -109,8 +153,39 @@ describe('isCompleteEvent', () => {
     ['missing menu', food({ items: ['lunch'] })],
     ['unknown menu', food({ items: ['lunch'], menus: { lunch: 'sunday-table' } })],
     ['menu for a food not chosen', food({ menus: { lunch: 'copper-fork' } })],
-    ['missing package', drinks({ packages: {} })],
-    ['unknown package', drinks({ packages: { 'wine-only': 'four-cocktails' } })],
+    ['removed drink', drinks({ items: ['wine-tasting'], wineBottles: [] })],
+    ['Wine only without bottles', drinks({ wineBottles: [] })],
+    ['unknown bottle', bottle({ product: 'lemonade' })],
+    ['unknown glass size', bottle({ glass: 'glass-500' })],
+    ['no bottles', bottle({ quantity: 0 })],
+    ['part of a bottle', bottle({ quantity: 1.5 })],
+    [
+      'bottles of a drink not chosen',
+      drinks({
+        items: ['cocktails-spirits-only'],
+        packages: { 'cocktails-spirits-only': 'one-cocktail' },
+      }),
+    ],
+    ['missing cocktails package', drinks({ items: ['cocktails-spirits-only'], wineBottles: [] })],
+    ['unknown cocktails package', drinksAll({ packages: { 'drinks-all': 'four-cocktails' } })],
+    [
+      'Drinks all without a bottle',
+      drinksAll({ drinksAllBottle: { kind: 'wine', product: null } }),
+    ],
+    [
+      'Drinks all bottle of the other kind',
+      drinksAll({ drinksAllBottle: { kind: 'sparkling', product: 'house-red' } }),
+    ],
+    [
+      'overlapping DJ and live music',
+      {
+        entertainment: {
+          items: ['dj', 'live-music'],
+          times: { dj: slot('18:30', '21:30'), 'live-music': slot('21:00', '23:00') },
+          activitiesPreference: null,
+        },
+      },
+    ],
     ['missing service times', drinks({ items: ['wine-only', 'private-bartender'] })],
     [
       'service outside the event',

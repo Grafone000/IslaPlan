@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const ON_ACCENT = 'rgb(255, 246, 227)';
+const ON_ACCENT = 'rgb(255, 255, 255)';
 
 async function checkBasics(page: Page, path: string) {
   await page.goto(path);
@@ -42,7 +42,7 @@ for (const path of ['/', '/login', '/forgot-password', '/plan/event-type']) {
 
 test('accent buttons keep their light text', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('link', { name: 'Book your event' }).first()).toHaveCSS(
+  await expect(page.getByRole('link', { name: 'Let’s start planning' })).toHaveCSS(
     'color',
     ON_ACCENT,
   );

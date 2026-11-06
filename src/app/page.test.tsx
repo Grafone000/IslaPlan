@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { home } from '@/content/home';
 import Home from './page';
@@ -19,29 +19,30 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
+const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+
 describe('Home', () => {
-  it('shows the main title at the top', () => {
+  it('shows the IslaPlan name on the first photo', () => {
     render(<Home />);
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-      "Bring the party home. We'll take care of the rest.",
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('IslaPlan');
+  });
+
+  it('opens the menu from the three lines, with a Log in link', async () => {
+    render(<Home />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    openMenu();
+    expect(screen.getByRole('dialog', { name: 'Menu' })).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'Log in' }).getAttribute('href')).toBe('/login'),
     );
+    fireEvent.click(screen.getByRole('button', { name: 'Close menu' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('sends every Book your event button to the wizard', () => {
-    render(<Home />);
-    const links = screen.getAllByRole('link', { name: 'Book your event' });
-    expect(links).toHaveLength(2);
-    expect(links.every((link) => link.getAttribute('href') === '/plan')).toBe(true);
-  });
-
-  it('has a Log in link to the login page', () => {
-    render(<Home />);
-    expect(screen.getByRole('link', { name: 'Log in' }).getAttribute('href')).toBe('/login');
-  });
-
-  it('offers My area and Log out once logged in', async () => {
+  it('offers My area and Log out in the menu once logged in', async () => {
     mocks.currentAccount.mockResolvedValue({ id: 'account-1' });
     render(<Home />);
+    openMenu();
     await waitFor(() =>
       expect(screen.getByRole('link', { name: 'My area' }).getAttribute('href')).toBe('/account'),
     );
@@ -49,31 +50,41 @@ describe('Home', () => {
     expect(screen.queryByRole('link', { name: 'Log in' })).toBeNull();
   });
 
-  it('shows the three photo sections with their images', () => {
+  it('says You celebrate, We coordinate, with links down the page', () => {
     render(<Home />);
-    for (const experience of home.experiences) {
-      expect(screen.getByRole('heading', { level: 2, name: experience.title })).toBeTruthy();
-      expect(screen.getByText(experience.body)).toBeTruthy();
-      expect(screen.getByAltText(experience.image.alt)).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: /You celebrate\s*We coordinate/ })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '• Plan your event' }).getAttribute('href')).toBe('#book');
+    expect(screen.getByRole('link', { name: '• See what we do' }).getAttribute('href')).toBe(
+      '#events',
+    );
+  });
+
+  it('lists every event type we plan', () => {
+    render(<Home />);
+    for (const item of home.events.items) {
+      expect(screen.getByText(item)).toBeTruthy();
     }
   });
 
-  it('does not show the draft palette switcher', () => {
+  it('ends with the button that starts the planning', () => {
     render(<Home />);
-    expect(screen.queryByRole('button', { name: 'Change palette' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Let’s start planning' }).getAttribute('href')).toBe(
+      '/plan',
+    );
+    expect(screen.getByText(home.book.body)).toBeTruthy();
   });
 });
 
 describe('home content', () => {
-  it('keeps the main text exactly as supplied', () => {
-    expect(`${home.hero.title} ${home.hero.titleEmphasis}`).toBe(
-      "Bring the party home. We'll take care of the rest.",
+  it('keeps the story text exactly as supplied', () => {
+    expect(`${home.story.title} ${home.story.titleEmphasis}`).toBe(
+      'Bring the party home. We’ll take care of the rest.',
     );
-    expect(home.choices.paragraphs).toEqual([
-      'Planning a celebration at home should feel exciting, not stressful. We work with a trusted selection of reliable suppliers, and we take care of the coordination behind the scenes, bringing every detail together so your event runs smoothly.',
+    expect(home.story.paragraphs).toEqual([
+      'Planning a celebration at home should feel exciting, not stressful. We work with a trusted selection of reliable suppliers and take care of the coordination behind the scenes, bringing every detail together so your event runs smoothly.',
       'You stay in control of the choices. From delicious food and drinks to music and entertainment, décor and those special finishing touches, you can select the elements that make your celebration uniquely yours.',
       'Simply tell us your vision and we can make it happen. If you can imagine it, we can make it reality.',
-      "Once you've made your selections, you'll receive an estimated proposal based on your choices. If you're happy to take things further, we'll be delighted to get in touch, confirm the details and start bringing your plans to life.",
+      'Once you’ve made your selections, you’ll receive an estimated proposal based on your choices. If you’re happy to take things further, we’ll be delighted to get in touch, confirm the details and start bringing your plans to life.',
     ]);
   });
 });

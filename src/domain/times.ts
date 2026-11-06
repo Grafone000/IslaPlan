@@ -113,3 +113,43 @@ export function isValidSlot(event: EventDetails, slot: TimeSlot): boolean {
     )
   );
 }
+
+const slotMinutes = (slot: TimeSlot) => [
+  toMinutes(slot.startTime, slot.startsNextDay),
+  toMinutes(slot.endTime, slot.endsNextDay),
+];
+
+// Two services overlap when one starts before the other ends. Touching ends are fine.
+export function slotsOverlap(a: TimeSlot, b: TimeSlot): boolean {
+  const [aStart, aEnd] = slotMinutes(a);
+  const [bStart, bEnd] = slotMinutes(b);
+  return aStart < bEnd && bStart < aEnd;
+}
+
+export function hasOverlap(slots: readonly TimeSlot[]): boolean {
+  return slots.some((slot, index) => slots.slice(index + 1).some((other) => slotsOverlap(slot, other)));
+}
+
+// The free part of the event after the latest of the given slots, or null if none is left.
+export function slotAfter(event: EventDetails, slots: readonly TimeSlot[]): TimeSlot | null {
+  const whole = wholeEventSlot(event);
+  if (!whole) return null;
+  if (slots.length === 0) return whole;
+  const [, eventEnd] = slotMinutes(whole);
+  const latestEnd = Math.max(...slots.map((slot) => slotMinutes(slot)[1]));
+  if (eventEnd - latestEnd < SLOT_MINUTES) return null;
+  const start = slotTime(latestEnd);
+  return { ...whole, startTime: start.time, startsNextDay: start.nextDay };
+}
+
+// Splits a slot at its middle, on the 30-minute grid, or null if it is too short to share.
+export function splitSlot(slot: TimeSlot): [TimeSlot, TimeSlot] | null {
+  const [start, end] = slotMinutes(slot);
+  const middle = start + Math.floor((end - start) / 2 / SLOT_MINUTES) * SLOT_MINUTES;
+  if (middle <= start || middle >= end) return null;
+  const cut = slotTime(middle);
+  return [
+    { ...slot, endTime: cut.time, endsNextDay: cut.nextDay },
+    { ...slot, startTime: cut.time, startsNextDay: cut.nextDay },
+  ];
+}

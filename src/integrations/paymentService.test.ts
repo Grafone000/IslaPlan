@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { business } from '@/config/business';
 import { applyCommand, createEstimatedRequest, type PricingContext } from '@/domain/commands';
-import { priceTableV2 } from '@/domain/pricing/table.v2';
-import type { EventDetails, EventRequest } from '@/domain/request';
+import { priceTableV3 } from '@/domain/pricing/table.v3';
+import { transition, type EventDetails, type EventRequest } from '@/domain/request';
 import type { RequestRepository } from './contracts';
 import { confirmDeposit, startDeposit, type PaymentServiceDeps } from './paymentService';
 
 const ID = '6f1c1f0e-2f43-4f52-9d0e-3f8a0a7f1b11';
 const NOW = '2026-11-01T11:00:00.000Z';
-const pricing: PricingContext = { table: priceTableV2, config: business };
+const pricing: PricingContext = { table: priceTableV3, config: business };
 const contact = {
   firstName: 'Jamie',
   lastName: 'Doe',
@@ -22,11 +22,13 @@ const event: EventDetails = {
   startTime: '18:30',
   endTime: '23:00',
   endsNextDay: false,
-  guests: 50,
+  partySize: 'size-40-60',
   food: { items: ['dinner'], menus: {}, ownFoodNote: null },
   drinks: {
     items: ['wine-only'],
-    packages: { 'wine-only': 'wine-175ml' },
+    packages: {},
+    drinksAllBottle: null,
+    wineBottles: [{ product: 'house-red', glass: 'glass-150', quantity: 10 }],
     times: {},
     ownDrinksNote: null,
   },
@@ -47,12 +49,14 @@ let created: number;
 let verifiedAs: 'paid' | 'failed' | null;
 let deps: PaymentServiceDeps;
 
+// Clients are no longer asked for a deposit, but requests saved before still wait for one.
 function atDeposit(accountId: string | null = null): EventRequest {
-  const steps = [{ type: 'accept-estimate' }, { type: 'skip-consultation' }, { type: 'proceed' }] as const;
-  return steps.reduce(
+  const steps = [{ type: 'accept-estimate' }, { type: 'skip-consultation' }] as const;
+  const accepted = steps.reduce(
     (request, command) => applyCommand(request, command, pricing, NOW),
     createEstimatedRequest({ id: ID, accountId, contact, event }, pricing, NOW),
   );
+  return transition(accepted, 'deposit-pending', NOW);
 }
 
 beforeEach(() => {
@@ -89,7 +93,7 @@ describe('startDeposit', () => {
     expect(stored.payment).toEqual({
       provider: 'test',
       paymentId: 'pay-1',
-      amount: 117_500,
+      amount: 105_600,
       currency: 'GBP',
       status: 'pending',
       paidAt: null,

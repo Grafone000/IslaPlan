@@ -7,10 +7,12 @@ import {
   entertainmentOptions,
   eventTypes,
   foodMenus,
+  bottleProducts,
+  bottlesPerGuest,
   foodOptions,
-  guestLimits,
+  glassSizes,
   menuFoods,
-  packagedDrinks,
+  partySizes,
   wizardSteps,
   type CatalogOption,
 } from './catalog';
@@ -47,8 +49,6 @@ describe('catalog ids and labels', () => {
 
   it('matches the agreed drinks options', () => {
     expect(pairs(drinksOptions)).toEqual([
-      ['cocktails-masterclass', 'Cocktails masterclass'],
-      ['wine-tasting', 'Wine tasting'],
       ['private-bartender', 'Private bartender'],
       ['private-sommelier', 'Private sommelier'],
       ['drinks-all', 'Drinks all'],
@@ -77,9 +77,18 @@ describe('catalog ids and labels', () => {
 
 });
 
-describe('sliders', () => {
-  it('count guests from 10 to 100 one at a time', () => {
-    expect(guestLimits).toMatchObject({ min: 10, max: 100, step: 1 });
+describe('party sizes and budget', () => {
+  it('offer the agreed party sizes, contiguous and without overlaps', () => {
+    expect(pairs(partySizes)).toEqual([
+      ['size-10-20', 'From 10 to 20'],
+      ['size-20-40', 'From 20 to 40'],
+      ['size-40-60', 'From 40 to 60'],
+      ['size-60-80', 'From 60 to 80'],
+      ['size-up-to-100', 'Up to 100'],
+    ]);
+    partySizes.slice(1).forEach((size, index) => {
+      expect(size.guestsMin).toBe(partySizes[index].guestsMax);
+    });
   });
 
   it('set the budget from £500 to £20,000 in steps of £50', () => {
@@ -87,7 +96,6 @@ describe('sliders', () => {
   });
 
   it('start on a value they can reach', () => {
-    expect((guestLimits.initial - guestLimits.min) % guestLimits.step).toBe(0);
     expect((budgetLimits.initialMinor - budgetLimits.minMinor) % budgetLimits.stepMinor).toBe(0);
   });
 });
@@ -103,10 +111,30 @@ describe('menus and drinks packages', () => {
     ]);
   });
 
-  it('offer four options per drinks package', () => {
-    for (const drink of packagedDrinks) {
-      expect(drinkPackages[drink]).toHaveLength(4);
+  it('offer four cocktail options for Cocktails/spirits only and Drinks all', () => {
+    expect(drinkPackages['cocktails-spirits-only']).toHaveLength(4);
+    expect(drinkPackages['drinks-all']).toHaveLength(4);
+    for (const option of drinkPackages['drinks-all']) {
+      expect(bottlesPerGuest[option.id]).toBe(option.id.startsWith('four') ? 1 : 0.5);
     }
+  });
+
+  it('list champagne and wines with a price and a picture each', () => {
+    expect(bottleProducts.filter((bottle) => bottle.kind === 'sparkling').length).toBeGreaterThan(0);
+    expect(bottleProducts.filter((bottle) => bottle.kind === 'wine').length).toBeGreaterThan(0);
+    expect(new Set(bottleProducts.map((bottle) => bottle.id)).size).toBe(bottleProducts.length);
+    for (const bottle of bottleProducts) {
+      expect(Number.isInteger(bottle.priceMinor) && bottle.priceMinor > 0).toBe(true);
+      expect(bottle.image).toMatch(/^\/images\/drinks\//);
+    }
+  });
+
+  it('pour a bottle as 5, 4 or 3 glasses', () => {
+    expect(glassSizes.map((size) => [size.label, size.glasses])).toEqual([
+      ['5 glasses of 150 ml', 5],
+      ['4 glasses of 175 ml', 4],
+      ['3 glasses of 250 ml', 3],
+    ]);
   });
 
   it('have unique ids within each list', () => {

@@ -12,7 +12,7 @@ export function ChoiceCard({
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`min-h-14 w-full cursor-pointer rounded-button border-[1.5px] px-4 py-3 text-left text-base font-medium ${
+      className={`min-h-14 w-full cursor-pointer rounded-button border px-4 py-3 text-left text-[15px] ${
         selected
           ? 'border-accent bg-accent text-on-accent'
           : 'border-line bg-white text-ink hover:border-accent'

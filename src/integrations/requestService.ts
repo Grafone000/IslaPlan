@@ -6,6 +6,7 @@ import {
   type PricingContext,
 } from '@/domain/commands';
 import { InvalidTransitionError } from '@/domain/request';
+import { earliestEventDate } from '@/domain/dates';
 import { isCompleteEvent, isContact, isUuid } from '@/domain/validation';
 import type { CrmGateway, RequestRepository } from './contracts';
 
@@ -23,6 +24,10 @@ export interface ServiceResult {
 
 const failure = (status: number, error: string): ServiceResult => ({ status, body: { error } });
 
+// Events are booked at least a month ahead, counted from the server's own clock.
+const isBookable = (date: string | null, now: string) =>
+  date !== null && date >= earliestEventDate(new Date(now));
+
 // Anything in the body beyond id, contact and event is ignored: the browser cannot set
 // amounts, statuses or the account.
 export async function createRequest(
@@ -31,7 +36,12 @@ export async function createRequest(
   deps: RequestServiceDeps,
 ): Promise<ServiceResult> {
   const { id, contact, event } = (body ?? {}) as Record<string, unknown>;
-  if (!isUuid(id) || !isContact(contact) || !isCompleteEvent(event)) {
+  if (
+    !isUuid(id) ||
+    !isContact(contact) ||
+    !isCompleteEvent(event) ||
+    !isBookable(event.date, deps.now())
+  ) {
     return failure(400, 'invalid-request');
   }
   if (await deps.requests.get(id)) {
@@ -64,6 +74,14 @@ export async function runRequestCommand(
     return failure(404, 'not-found');
   }
   if (!isRequestCommand(body, isCompleteEvent)) {
+    return failure(400, 'invalid-command');
+  }
+  // A new date must respect the month ahead; an unchanged one may already be closer.
+  if (
+    body.type === 'change-event' &&
+    body.event.date !== request.event.date &&
+    !isBookable(body.event.date, deps.now())
+  ) {
     return failure(400, 'invalid-command');
   }
 

@@ -7,9 +7,9 @@ import { authContent } from '@/content/auth';
 import { home } from '@/content/home';
 import { auth } from '@/integrations';
 
-const linkClass = 'inline-flex min-h-11 items-center no-underline';
+const defaultLinkClass = 'inline-flex min-h-11 items-center no-underline';
 
-export function AuthNav() {
+export function AuthNav({ linkClass = defaultLinkClass }: { linkClass?: string }) {
   const router = useRouter();
   const [loggedIn, setLoggedIn] = useState(false);
 
@@ -25,8 +25,8 @@ export function AuthNav() {
 
   if (!loggedIn) {
     return (
-      <Link href={home.nav.logIn.href} className={linkClass}>
-        {home.nav.logIn.label}
+      <Link href={home.menu.logIn.href} className={linkClass}>
+        {home.menu.logIn.label}
       </Link>
     );
   }

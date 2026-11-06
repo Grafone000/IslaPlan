@@ -1,8 +1,8 @@
-# App Eventi: istruzioni di progetto
+# IslaPlan: istruzioni di progetto
 
 ## Cosa stiamo costruendo
 
-**Event Planner**: app web per PC e telefono con cui i clienti compongono un evento a casa, vedono un preventivo indicativo e versano un deposito.
+**IslaPlan**: app web per PC e telefono con cui i clienti compongono un evento a casa e ricevono un preventivo indicativo. Il deposito non viene più chiesto.
 
 Un secondo servizio, il **CRM**, gestirà in futuro le richieste. **Non costruire il CRM**: ogni richiesta, accettata o rifiutata, va salvata in una struttura versionata che il CRM possa usare senza rifacimenti.
 
@@ -13,12 +13,13 @@ Un secondo servizio, il **CRM**, gestirà in futuro le richieste. **Non costruir
 
 ### Home
 
-- Replica la bozza "Version D". Tutti i testi stanno in `src/content/home.ts`.
-- Titolo in alto: "Bring the party home. We'll take care of the rest."
-- Testi delle sezioni foto ispirati al testo principale. I suoi quattro paragrafi compaiono **copiati esattamente** sotto "Your event, your choices".
-- Nelle tre sezioni foto, titolo e testo compaiono con fade e slide allo scroll, rispettando `prefers-reduced-motion`.
-- Tutti i pulsanti "Book your event" portano al wizard.
-- "Log in" porta alla pagina di accesso. Con l'accesso fatto, la barra mostra "My area" e "Log out".
+Ispirata al sito di Zara: scritte semplici, foto centrali di misure diverse, palette bianca e verde salvia. Tutti i testi stanno in `src/content/home.ts`.
+
+1. **Prima foto**, a tutto schermo: "IslaPlan" grande in basso a destra, che scompare con una dissolvenza scorrendo. In alto a destra tre linee aprono il menu, con Book your event, What we do, Log in oppure My area e Log out.
+2. **Seconda foto**, al centro: "YOU CELEBRATE / WE COORDINATE". Sotto, in Bodoni corsivo, "• Plan your event" a sinistra porta al pulsante finale, "• See what we do" a destra porta alla lista degli eventi.
+3. **Terza foto**: a sinistra il testo "Bring the party home. We’ll take care of the rest." con i suoi quattro paragrafi **copiati esattamente**, a destra la foto. Sotto, a destra, il nome "IslaPlan" scritto a mano.
+4. **Lista degli eventi**, senza foto, su due colonne.
+5. **Pulsante finale**: "Let’s start planning" a destra, con sotto "Tell us what you’re celebrating, get an estimate, our team is here to shape the rest."
 
 ### Account
 
@@ -30,52 +31,56 @@ Un secondo servizio, il **CRM**, gestirà in futuro le richieste. **Non costruir
 
 ### Wizard Event builder
 
-Una domanda per step, con bozza salvata e navigazione indietro.
+Una domanda per step, con bozza salvata e navigazione indietro. Il passaggio tra una pagina e l'altra si sfoglia come una rivista.
 
 | # | Step | Tipo | Opzioni |
 |---|---|---|---|
-| 1 | Event type | Singola | Wedding, Birthday, Engagement, Wedding proposal, Hen Do/Stag Do, Baby showers, Graduation, Girls' night/Boys' night, Family/friends reunions, Other/Bespoke |
-| 2 | Date & Time | Data, inizio, fine | Calendario con orari |
-| 3 | Party size | Slider | Da 10 a 100 ospiti, passo 1 |
+| 1 | Tell us, what are you planning? | Singola | Wedding, Birthday, Engagement, Wedding proposal, Hen Do/Stag Do, Baby showers, Graduation, Girls' night/Boys' night, Family/friends reunions, Other/Bespoke |
+| 2 | Date & Time | Data, inizio, fine | Calendario con orari; si prenota da un mese dopo oggi |
+| 3 | Party size | Singola | From 10 to 20, From 20 to 40, From 40 to 60, From 60 to 80, Up to 100 |
 | 4 | Food | Multipla, obbligatoria | Brunch, Lunch, Dinner, Canapés, Afternoon tea, Private chef, I bring my own food |
-| 4a | Menu | Singola, una pagina per voce | Per Brunch, Lunch, Canapés e Afternoon tea 3 menu; per Private chef 5 chef |
-| 5 | Drinks | Multipla, obbligatoria | Cocktails masterclass, Wine tasting, Private bartender, Private sommelier, Drinks all, Wine only, Cocktails/spirits only, I bring my own drinks |
-| 5a | Quantità drink | Singola, una pagina per voce | Per Cocktails/spirits only, Drinks all e Wine only, 4 opzioni ciascuno |
+| 4a | Menu | Singola, una pagina per voce | Menu impaginati come quelli di un ristorante: 3 per Brunch, Lunch, Canapés e Afternoon tea; 5 chef per Private chef |
+| 5 | Drinks | Multipla, obbligatoria | Private bartender, Private sommelier, Drinks all, Wine only, Cocktails/spirits only, I bring my own drinks |
+| 5a | Dettagli drink | Una pagina per voce | Cocktails/spirits only: 1-4 cocktail a persona. Drinks all: 1-4 cocktail più 1 o ½ bottiglia a persona, poi vino o champagne e la bottiglia. Wine only: bottiglie di champagne e vino, ognuna con bicchieri e quantità |
 | 6 | Entertainment | Multipla, saltabile | DJ, Live music, Activities \| share your preference |
 | 7 | Decorations | Multipla, saltabile | Flowers, Balloons, Personalised/branded items, Other/Bespoke |
 | 8 | Any additional information | Testo libero, facoltativo | |
 | 9 | Budget | Slider | Da £500 a £20,000 a passi di £50; il massimo vale "£20,000 or more" |
 | 10 | Contact details | Modulo | Nome e cognome, email, telefono |
 
-- Le scelte singole avanzano al tocco, le multiple e gli slider con Continue.
+- Le scelte singole avanzano al tocco, le multiple, il budget e le pagine delle bottiglie con Continue.
 - Private chef esclude Lunch e Dinner, e viceversa.
 - Drinks all esclude Wine only e Cocktails/spirits only. I bring my own drinks esclude Drinks all, Wine only e Cocktails/spirits only. Wine only e Cocktails/spirits only si possono scegliere insieme.
 - Dopo Continue, Food apre una pagina menu per ogni voce scelta che ha menu, e Drinks una pagina quantità per ogni voce che ha opzioni, nell'ordine del catalogo. Dinner e I bring my own food non hanno menu.
 - La casella scelta si allarga, senza cambiare pagina, per:
-  - Private bartender, Private sommelier, DJ e Live music: orario di inizio e fine, dentro l'orario dell'evento, che parte dall'intero evento.
+  - Private bartender, Private sommelier, DJ e Live music: orario di inizio e fine, dentro l'orario dell'evento.
+  - DJ e Live music non possono sovrapporsi: il secondo parte dove finisce il primo, e se il primo occupa tutto l'evento il tempo si divide a metà.
   - I bring my own food e I bring my own drinks: testo facoltativo, si può proseguire anche vuoto.
   - Activities: testo con l'idea del cliente.
 - Other/Bespoke mostra un campo di testo.
-- Menu, piatti, chef e opzioni dei drink stanno in `src/domain/catalog.ts`, con id stabili.
+- Wine only: per ogni bottiglia il cliente sceglie come servirla (5 bicchieri da 150 ml, 4 da 175 ml, 3 da 250 ml) e quante bottiglie. Si possono scegliere più bottiglie, champagne e vino insieme.
+- La lista dei vini è **provvisoria**: nomi e prezzi inventati, con due foto segnaposto, in attesa della lista reale.
+- Menu, piatti, chef, opzioni dei drink e bottiglie stanno in `src/domain/catalog.ts`, con id stabili.
 
-### Preventivo e prenotazione
+### Preventivo
 
-1. **Estimate:** mostra un intervallo indicativo calcolato con le regole dell'Excel, e chiede se il cliente lo accetta.
+Il preventivo si sfoglia come una rivista: copertina IslaPlan creata per l'evento, poi una pagina con la descrizione dettagliata dell'evento, poi il preventivo con le domande. Al primo arrivo si parte dalla copertina, ai ritorni direttamente dal preventivo.
+
+1. **Estimate:** mostra un intervallo indicativo e chiede se il cliente lo accetta.
 2. **Rifiuto:** il cliente torna a modificare l'evento con un supporto decisionale che mostra le voci che pesano di più, le modifiche che fanno risparmiare di più e la distanza dal budget. Può anche fermarsi: la richiesta resta salvata.
-3. **Consulenza:** "Would you like a phone consultation?". Se sì, mostra email, telefono e costo di £0.10/min.
+3. **Consulenza:** "Would you like a phone consultation?". Se sì, mostra email e telefono, senza il costo della chiamata.
    - Telefono: link `tel:`. Al ritorno il cliente ritrova la stessa schermata.
    - Email: compositore interno con A, Oggetto, Corpo, testo formattato, link e allegati. L'invio passa da uno stub.
-4. **Procedere:** con o senza consulenza, chiede se il cliente vuole procedere.
-5. **Deposito:** se sì, chiede il 20% del valore medio su una pagina di pagamento con provider stub. Stripe arriverà dopo.
-6. **Risposta negativa:** a "proceed" o al deposito mostra un breve messaggio cortese e salva la richiesta con il suo stato. Il "no" alla consulenza non chiude il flusso.
-7. **Voci "On request":** non hanno importo. Se nessuna voce ha un prezzo non ci sono importo né deposito: per esempio un evento Other/Bespoke senza Flowers né Balloons.
+4. **Procedere:** con o senza consulenza, chiede se il cliente vuole procedere. Se sì, mostra un ringraziamento: lo staff lo contatterà. **Non si chiede il deposito.**
+5. **Risposta negativa:** a "proceed" mostra un breve messaggio cortese e salva la richiesta con il suo stato. Il "no" alla consulenza non chiude il flusso.
+6. **Voci "On request":** non hanno importo. Se nessuna voce ha un prezzo non c'è importo.
+7. **Deposito:** pagina e API restano solo per le richieste salvate prima, ancora in attesa di deposito.
 
 ### Area riservata
 
-- Eventi del cliente, divisi in Upcoming e Past.
-- Dettaglio dell'evento con riepilogo e foto caricate dallo staff.
-- Conversazione con l'organizzatore tramite il compositore email.
-- "Create new event" per aprire un nuovo wizard.
+- Sfondo di marmo. Ogni evento è una rivista posata sul tavolo: più eventi, più riviste.
+- Ogni rivista porta tipo di evento, data e stato, con l'etichetta Upcoming o Past. Aprendola si vede l'evento, con riepilogo, foto caricate dallo staff e conversazione con l'organizzatore.
+- "Create new event" apre un nuovo wizard.
 
 ## Lingua
 
@@ -98,8 +103,8 @@ Niente librerie di stato, form o validazione. **Chiedi prima di aggiungere quals
 - `src/domain/` è puro: niente React, niente browser, niente Supabase.
 - `src/integrations/contracts.ts` definisce le interfacce. Email, pagamento e CRM restano **stub** finché non viene chiesto altro.
 - I testi modificabili stanno in `src/content/`, mai nei componenti.
-- Email di contatto, telefono, tariffa e percentuale di deposito stanno in `src/config/business.ts`.
-- Il design viene dalla bozza "Version D", palette **Ondari**. Ogni pagina riusa gli stessi token e componenti.
+- Email di contatto, telefono e percentuale di deposito stanno in `src/config/business.ts`.
+- Design ispirato a Zara, palette **bianca e verde salvia** (token in `src/app/globals.css`). Font: Jost per il testo, Bodoni Moda per titoli e corsivi, Nanum Pen Script per il nome IslaPlan, al posto di Kendraw. Ogni pagina riusa gli stessi token e componenti.
 - Ogni schermata deve funzionare a 375 px e a 1440 px, con aree toccabili di almeno 44 px.
 
 ## Dati e contratto CRM
@@ -119,17 +124,18 @@ Niente librerie di stato, form o validazione. **Chiedi prima di aggiungere quals
 
 ## Prezzi
 
-- La fonte è `6baf2c930_stima_prezzi_eventi.xlsx`, trascritta in `src/domain/pricing/table.v2.ts` (`pricing-v2`).
-- Il preventivo usa il numero esatto di ospiti: somma dei minimi × ospiti, somma dei massimi × ospiti.
+- La fonte è `6baf2c930_stima_prezzi_eventi.xlsx`, trascritta in `src/domain/pricing/table.v3.ts` (`pricing-v3`).
+- Il preventivo usa la fascia di ospiti: somma dei minimi × ospiti minimi, somma dei massimi × ospiti massimi.
 - Differenze dall'Excel, decise dal cliente:
   - Brunch costa come Lunch finché non avrà prezzi suoi.
   - I bring my own food non costa nulla e non compare nel preventivo.
   - Flowers e Balloons costano £15 a persona ciascuno, per ogni tipo di evento.
-- Menu, quantità dei drink, orari e note non cambiano il prezzo.
+  - Le bottiglie si pagano a bottiglia: Wine only conta solo le bottiglie scelte; Drinks all conta i cocktail al prezzo di Cocktails/spirits only più le bottiglie, 1 o ½ a persona arrotondate per eccesso, sugli ospiti minimi e massimi.
+- Menu, numero di cocktail, bicchieri, orari e note non cambiano il prezzo.
 - Ogni regola e ambiguità è documentata in `docs/pricing-rules.md`.
 - Il preventivo è sempre presentato come indicativo.
-- I prezzi dell'Excel non sono validati: è un blocco per l'uscita online.
-- Caso di riferimento: Wedding, 50 ospiti, Dinner, Wine only, DJ, Flowers dà £4,500-£7,250, valore medio £5,875, deposito £1,175.
+- I prezzi dell'Excel e dei vini non sono validati: è un blocco per l'uscita online.
+- Caso di riferimento: Wedding, From 40 to 60, Dinner, Wine only con 10 bottiglie di House Red, DJ, Flowers dà £3,200-£7,360, valore medio £5,280.
 
 ## Modo di lavorare
 

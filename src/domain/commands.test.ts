@@ -8,11 +8,11 @@ import {
   type PricingContext,
   type RequestCommand,
 } from './commands';
-import { priceTableV2 } from './pricing/table.v2';
-import type { EventDetails, EventRequest, RequestStatus } from './request';
+import { priceTableV3 } from './pricing/table.v3';
+import { estimateStage, type EventDetails, type EventRequest, type RequestStatus } from './request';
 import { isCompleteEvent } from './validation';
 
-const pricing: PricingContext = { table: priceTableV2, config: business };
+const pricing: PricingContext = { table: priceTableV3, config: business };
 const T0 = '2026-11-01T10:00:00.000Z';
 const T1 = '2026-11-01T10:05:00.000Z';
 
@@ -23,11 +23,13 @@ const event: EventDetails = {
   startTime: '18:30',
   endTime: '01:00',
   endsNextDay: true,
-  guests: 50,
+  partySize: 'size-40-60',
   food: { items: ['dinner'], menus: {}, ownFoodNote: null },
   drinks: {
     items: ['wine-only'],
-    packages: { 'wine-only': 'wine-175ml' },
+    packages: {},
+    drinksAllBottle: null,
+    wineBottles: [{ product: 'house-red', glass: 'glass-150', quantity: 10 }],
     times: {},
     ownDrinksNote: null,
   },
@@ -62,14 +64,14 @@ describe('createEstimatedRequest', () => {
   it('calculates the estimate itself and starts at estimated', () => {
     const request = estimated();
     expect(request.status).toBe('estimated');
-    expect(request.estimate?.midpoint).toBe(587_500);
-    expect(request.estimate?.depositAmount).toBe(117_500);
+    expect(request.estimate?.midpoint).toBe(528_000);
+    expect(request.estimate?.depositAmount).toBe(105_600);
     expect(request.statusHistory.map((change) => change.status)).toEqual(['draft', 'estimated']);
   });
 });
 
 describe('applyCommand', () => {
-  it('reaches deposit-pending through the full path', () => {
+  it('ends the client part when they proceed, with no deposit', () => {
     const request = run(
       estimated(),
       { type: 'accept-estimate' },
@@ -77,7 +79,8 @@ describe('applyCommand', () => {
       { type: 'set-consultation-method', method: 'phone' },
       { type: 'proceed' },
     );
-    expect(request.status).toBe('deposit-pending');
+    expect(request.status).toBe('consultation-requested');
+    expect(estimateStage(request)).toBe('closed');
     expect(request.decisions).toEqual({
       estimateAccepted: true,
       consultationWanted: true,
@@ -94,8 +97,9 @@ describe('applyCommand', () => {
       { type: 'skip-consultation' },
       { type: 'proceed' },
     );
-    expect(request.status).toBe('deposit-pending');
+    expect(request.status).toBe('accepted');
     expect(request.decisions.consultationWanted).toBe(false);
+    expect(request.decisions.proceed).toBe(true);
   });
 
   it('sends a rejected estimate to revising, not to declined', () => {
@@ -112,10 +116,10 @@ describe('applyCommand', () => {
       { type: 'change-event', event: cheaper },
     );
     expect(request.status).toBe('estimated');
-    expect(request.estimate?.midpoint).toBe(450_000);
+    expect(request.estimate?.midpoint).toBe(383_000);
     expect(request.decisions.estimateAccepted).toBeNull();
     expect(request.estimateHistory).toEqual([
-      { at: T1, totalLow: 450_000, totalHigh: 725_000, midpoint: 587_500 },
+      { at: T1, totalLow: 320_000, totalHigh: 736_000, midpoint: 528_000 },
     ]);
   });
 
@@ -130,10 +134,11 @@ describe('applyCommand', () => {
     expect(request.decisions.declinedAt).toBe(stage);
   });
 
-  it('keeps a fully on-request event out of the deposit', () => {
+  it('keeps a fully on-request event without amounts when it proceeds', () => {
     const bespoke = estimated({
       ...event,
       type: 'other-bespoke',
+      drinks: { ...event.drinks, items: ['byo-drinks'], wineBottles: [] },
       decorations: { items: [], note: null },
     });
     const request = run(bespoke, { type: 'accept-estimate' }, { type: 'proceed' });
