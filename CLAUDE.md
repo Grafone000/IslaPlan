@@ -2,7 +2,7 @@
 
 App web (PC e telefono) con cui i clienti compongono un evento a casa e ricevono un preventivo indicativo. Il CRM che gestirà le richieste è un servizio futuro: **non costruirlo**.
 
-- Repository: https://github.com/Grafone000/App-Eventi
+- Repository: https://github.com/Grafone000/IslaPlan
 - Piano approvato, con route, contratto dati, prezzi e milestone: `C:\Users\Mario\.claude\plans\c-users-mario-downloads-6baf2c930-stima-zazzy-church.md`
 
 ## File da leggere

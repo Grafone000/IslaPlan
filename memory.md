@@ -11,10 +11,10 @@ Come aggiornarlo:
 
 ## Stato attuale
 
-- Branch di lavoro: `chore/project-setup`. Ultimo commit: `b804afc` (redesign IslaPlan), già su `origin`.
+- Branch di lavoro: `chore/project-setup`, allineato a `origin`.
 - Contratto: `SCHEMA_VERSION = 3`, `DRAFT_VERSION = 3`, prezzi `pricing-v3`.
 - Ultimo controllo completo superato: tsc, lint, 334 test unitari, 126 E2E, build.
-- Deploy: Vercel collegato a GitHub `Grafone000/App-Eventi`; ogni push su `chore/project-setup` pubblica da solo.
+- Deploy: Vercel collegato a GitHub `Grafone000/IslaPlan` (prima `App-Eventi`, rinominato il 2026-11-08); ogni push su `chore/project-setup` pubblica da solo.
   - URL probabile: https://app-eventi-mario-f5ea.vercel.app (protetto da Vercel Authentication).
   - `app-eventi.vercel.app` è di un altro utente, non nostro.
 - Per renderlo pubblico restano da fare, lato utente: togliere Vercel Authentication in Deployment Protection, impostare `NEXT_PUBLIC_SITE_URL`, impostare Site URL e Redirect URLs in Supabase, rifare il deploy.
