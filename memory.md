@@ -26,7 +26,7 @@ Come aggiornarlo:
 
 ## Storico
 
-### 2026-11-08: Home a slide stile Zara (non ancora in commit)
+### 2026-11-08: Home a slide stile Zara (`c0eb8fb`, `9d1b953`)
 
 - Fonte: screenshot e HTML condensato della home Zara UK passati dall'utente.
 - Home riscritta come slide a tutto schermo (`HomeSlides.tsx`): una schermata alla volta, scroll snap, la slide uscente si rimpicciolisce al 65% con cornice bianca, scrollbar nascosta, tasti freccia/pagina.
