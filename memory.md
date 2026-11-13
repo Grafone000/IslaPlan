@@ -26,6 +26,17 @@ Come aggiornarlo:
 
 ## Storico
 
+### 2026-11-08: Home a slide stile Zara (non ancora in commit)
+
+- Fonte: screenshot e HTML condensato della home Zara UK passati dall'utente.
+- Home riscritta come slide a tutto schermo (`HomeSlides.tsx`): una schermata alla volta, scroll snap, la slide uscente si rimpicciolisce al 65% con cornice bianca, scrollbar nascosta, tasti freccia/pagina.
+- Terza foto a tutto schermo con il testo sopra (decisione dell'utente: "la foto è sempre centrale, il testo è sopra la foto").
+- Lista eventi su slide verde salvia, due colonne anche da telefono. Footer dentro l'ultima slide.
+- Restano invariati testi, posizioni dei testi, menu a tre linee in alto a destra e font del progetto.
+- Il repository non ha un file di configurazione Prettier: formattare con `--single-quote --print-width 100`.
+- Controlli: lint, tsc, 334 test unitari e build superati; E2E 129 su 130, il test del budget slider è fallito una volta per instabilità ed è passato rilanciato da solo.
+- Il server di sviluppo è ora in `.claude/launch.json` come `dev` (porta 3000).
+
 ### 2026-11-08: riorganizzazione delle istruzioni
 
 - `CLAUDE.md` ridotto all'essenziale secondo le best practice di Claude Code; importa `rules.md` e `memory.md`.

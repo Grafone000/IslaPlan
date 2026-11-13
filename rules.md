@@ -8,7 +8,8 @@ Regole di prodotto, brand, stile e architettura. `CLAUDE.md` le importa: valgono
 
 - Nome: **IslaPlan**. Prodotto: app web per PC e telefono con cui i clienti compongono un evento a casa e ricevono un preventivo indicativo.
 - Tono: scritte semplici ed eleganti, in inglese.
-- Ispirazione visiva: il sito di Zara. Foto centrali di misure diverse, molto bianco, poca decorazione.
+- Ispirazione visiva: il sito di Zara. Foto a tutto schermo con il testo sopra, molto bianco, poca decorazione, piccole etichette in maiuscolo.
+- Si prende lo stile, mai il marchio: niente logo, nomi, foto o font di Zara.
 
 ### Palette e font
 
@@ -35,11 +36,18 @@ Regole di prodotto, brand, stile e architettura. `CLAUDE.md` le importa: valgono
 
 Tutti i testi stanno in `src/content/home.ts`.
 
+Impaginazione da lookbook, come la home di Zara (`src/components/home/HomeSlides.tsx`):
+
+- Una schermata alla volta: ogni sezione è una slide alta quanto lo schermo, con la foto a tutto schermo e il testo sopra la foto. Lo scorrimento si ferma su ogni slide.
+- La slide che esce resta ferma e si rimpicciolisce al 65% circa verso il centro, lasciando una cornice bianca, mentre la successiva le scorre sopra. Con "riduci movimento" non si rimpicciolisce.
+- Barra di scorrimento nascosta. Frecce, Pagina su/giù e Spazio passano da una slide all'altra.
+- Le ancore (`#top`, `#coordinate`, `#story`, `#events`, `#book`) portano sempre alla slide giusta.
+
 1. **Prima foto**, a tutto schermo: "IslaPlan" grande in basso a destra, che scompare con una dissolvenza scorrendo. In alto a destra tre linee aprono il menu, con Book your event, What we do, Log in oppure My area e Log out.
 2. **Seconda foto**, al centro: "YOU CELEBRATE / WE COORDINATE". Sotto, in Bodoni corsivo, "• Plan your event" a sinistra porta al pulsante finale, "• See what we do" a destra porta alla lista degli eventi.
-3. **Terza foto**: a sinistra il testo "Bring the party home. We’ll take care of the rest." con i suoi quattro paragrafi **copiati esattamente**, a destra la foto. Sotto, a destra, il nome "IslaPlan" scritto a mano.
-4. **Lista degli eventi**, senza foto, su due colonne.
-5. **Pulsante finale**: "Let’s start planning" a destra, con sotto "Tell us what you’re celebrating, get an estimate, our team is here to shape the rest."
+3. **Terza foto**: la foto è sempre centrale, a tutto schermo. Il testo "Bring the party home. We’ll take care of the rest." con i suoi quattro paragrafi **copiati esattamente** sta sopra la foto, a sinistra, con una velatura scura per leggerlo. Sotto, a destra, il nome "IslaPlan" scritto a mano.
+4. **Lista degli eventi**, senza foto, su due colonne anche da telefono, su una slide piena verde salvia.
+5. **Pulsante finale**: "Let’s start planning" a destra sopra una foto a tutto schermo, con sotto "Tell us what you’re celebrating, get an estimate, our team is here to shape the rest.". Il piccolo footer sta in fondo a questa slide.
 
 ### Account
 

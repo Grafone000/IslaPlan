@@ -1,24 +1,25 @@
 import { home } from '@/content/home';
 
+// A full sage slide with no photo, to break the run of pictures.
 export function EventList() {
   const { events } = home;
   return (
-    <section id="events" className="scroll-mt-16 border-t border-line px-4 py-24 md:px-8 md:py-32">
-      <div className="mx-auto max-w-[880px]">
-        <h2 className="m-0 mb-12 text-[13px] font-medium tracking-[0.2em] text-muted uppercase">
+    <div className="flex h-full items-center bg-band px-4 pt-20 pb-10 text-band-ink md:px-8">
+      <div className="mx-auto w-full max-w-[960px]">
+        <h2 className="m-0 mb-8 text-[12px] font-medium tracking-[0.2em] uppercase md:mb-12">
           {events.title}
         </h2>
-        <ul className="m-0 grid list-none gap-x-16 gap-y-5 p-0 sm:grid-cols-2">
+        <ul className="m-0 grid list-none grid-cols-2 gap-x-6 gap-y-4 p-0 md:gap-x-16 md:gap-y-5">
           {events.items.map((item) => (
             <li
               key={item}
-              className="border-b border-line pb-4 font-serif text-[clamp(22px,2.4vw,32px)] leading-tight"
+              className="border-b border-band-ink/20 pb-3 font-serif text-[clamp(18px,2.6vw,34px)] leading-tight md:pb-4"
             >
               {item}
             </li>
           ))}
         </ul>
       </div>
-    </section>
+    </div>
   );
 }

@@ -86,6 +86,54 @@
   transform: translateY(24px);
 }
 
+/* Home: full-screen slides, one at a time. Each slide sticks while the next slides over
+   it, and shrinks to about 65% on the way out, as on a fashion lookbook. */
+.home-scroller {
+  --home-slide-height: 100dvh;
+  height: var(--home-slide-height);
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  background: var(--color-bg);
+}
+
+.home-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.home-snap {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.home-slide {
+  position: sticky;
+  top: 0;
+  height: var(--home-slide-height);
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.home-slide-inner {
+  position: relative;
+  height: 100%;
+  transform: scale(calc(1 - var(--leave, 0) * 0.348));
+  transform-origin: center;
+  will-change: transform;
+}
+
+/* The big IslaPlan name on the first slide fades out in the first half of the scroll. */
+.home-fade {
+  opacity: calc(1 - var(--leave, 0) * 2);
+}
+
 /* Page turn between wizard steps: the new page swings in from its spine, like a magazine. */
 .page-turn-stage {
   overflow-x: clip;
@@ -124,5 +172,13 @@
 
   .page-turn {
     animation: none;
+  }
+
+  .home-scroller {
+    scroll-behavior: auto;
+  }
+
+  .home-slide-inner {
+    transform: none;
   }
 }

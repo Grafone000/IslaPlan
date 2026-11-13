@@ -31,6 +31,7 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Intermittent Supabase connection timeouts | Some connections fail after 10 seconds with `UND_ERR_CONNECT_TIMEOUT`, then work again. Seen in a probe (2 of 6) and in several test runs, always on Node. Ruled out so far: keys, DNS (IPv4 only) and a bad address (both addresses answered 16 of 16 raw connections). Cause unknown: try another network or without VPN/antivirus filtering. A client would see "We couldn't save your request" and can retry. The RLS test retries the connection for this reason |
 | End-to-end tests fail now and then | Tests that log in or call Supabase sometimes fail on the connection timeout above, then pass when rerun alone. Seen with the private area tests in M10. Rerun a failing Supabase test before treating it as a real failure |
 | App not reachable from other devices in development | `npm run dev` only serves this PC. Next prints the NordVPN address (`100.x`), which a phone cannot reach, and Next 16 blocks its dev scripts on any address not listed in `allowedDevOrigins`. To show the app to anyone else, deploy it (Vercel) instead |
+| Budget slider test flaky under load | In a full run (2026-11-08) "the budget slider moves in steps of £50" stopped on Additional information instead of Budget after two quick "Skip this step" clicks; it passed when rerun alone. Probably the second click lands before the page turn has finished. Not tied to Supabase |
 | Organiser replies are awkward to add | Replies go in by hand in the Supabase dashboard, as editor JSON. Fine for testing, not for daily use: the CRM should own this |
 
 ### Unverified
@@ -41,6 +42,7 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Password reset email | Never received for real. Needs a real inbox and `http://localhost:3000/**` in the Redirect URLs |
 | Guest request linking | `LINK_GUEST_REQUESTS` is off in development, so the link has never run |
 | Accessibility beyond the basics | Automated checks cover titles, control names, image text, focus and colour contrast. No screen reader test has been done |
+| Home slides on a real phone | The full-screen slides, snap and shrink were checked in desktop Chrome and its 375 px emulation only. On iOS Safari the Home scrolls inside its own box, so the address bar may not collapse; check swipe feel and the story text on a small real phone |
 
 ### Improvements
 
@@ -49,6 +51,7 @@ Severity: **blocker** stops going live, **bug** is wrong behaviour, **unverified
 | Home photos | The text says "at home", the photos show restaurants and hotels |
 | Tooling audit warnings | `npm audit` reports moderate issues in the ESLint toolchain only. Not shipped to users. The only fix offered is a downgrade |
 | ESLint 9 | Marked as no longer supported, kept because `eslint-config-next` needs it |
+| No Prettier config | The repo has no Prettier config file, so a plain `npx prettier --write` switches the code to double quotes. Use `--single-quote --print-width 100` until a config is added |
 | Orphan files on failed send | If a message fails after its attachments upload, the files stay in Storage |
 | Stale request after two tabs | If the same request changes in another tab, the next action gets a 409 and a generic error. The client has to reload to continue |
 | Resuming an event from the private area | An open event shows in My area, but the client can only carry on with the estimate from the browser that started it |
