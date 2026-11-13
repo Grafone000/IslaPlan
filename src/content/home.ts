@@ -2,6 +2,14 @@
 
 export const home = {
   brand: 'IslaPlan',
+  // Screen reader names for the full-screen slides, in order.
+  slides: {
+    hero: 'Welcome',
+    coordinate: 'You celebrate, we coordinate',
+    story: 'About us',
+    events: 'What we do',
+    book: 'Start planning',
+  },
   menu: {
     open: 'Open menu',
     close: 'Close menu',
